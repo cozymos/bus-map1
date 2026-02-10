@@ -1,0 +1,41 @@
+{
+  "defaults": {
+    "default_location": {
+      "lat": 37.7749,
+      "lon": -122.4194,
+      "name": "San Francisco",
+      "country": "United States",
+      "country_code": "US"
+    },
+    "search_radius": 15,
+    "zoom_level": 12,
+    "tileLayer": "googleMaps",
+    "openai_model": "gpt-4.1-nano",
+    "openai_temperature": 0.1
+  },
+  "test_mode": {
+    "test_landmarks": [
+      {
+        "name": "Golden Gate Bridge",
+        "loc": "San Francisco, California, United States",
+        "desc": "The Golden Gate Bridge is a suspension bridge spanning the Golden Gate, the one-mile-wide strait connecting San Francisco Bay and the Pacific Ocean. It has become an internationally recognized symbol of San Francisco and California.",
+        "lat": 37.8199,
+        "lon": -122.4783
+      },
+      {
+        "name": "Alcatraz Island",
+        "desc": "Alcatraz Island is located in San Francisco Bay, 1.25 miles offshore from San Francisco. The small island was developed with facilities for a lighthouse, a military fortification, and a federal prison from 1934 until 1963.",
+        "lat": 37.827,
+        "lon": -122.423,
+        "loc": "San Francisco Bayarea"
+      },
+      {
+        "name": "Fisherman's Wharf",
+        "desc": "Fisherman's Wharf is a popular tourist attraction in San Francisco that encompasses the northern waterfront area. It's known for its shops, restaurants, and scenic views of the bay, as well as sea lion sightings at Pier 39.",
+        "lat": 37.808,
+        "lon": -122.4177,
+        "type": "test_mode"
+      }
+    ]
+  }
+}
