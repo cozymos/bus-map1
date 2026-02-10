@@ -7,7 +7,7 @@ export default defineConfig({
   base: process.env.VITE_BASE || '/',
   server: {
     host: '0.0.0.0',
-    port: 5001,
+    port: 5000,
     allowedHosts: true,
     headers: {
       'Cache-Control': 'no-store', // disable caching during dev
