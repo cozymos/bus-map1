@@ -47,50 +47,6 @@ Example format:
   ]
 }`,
     },
-    selector: {
-      template: `Please select the top 3 most interesting landmarks from the following list:
-
-{places_a}
----
-
-Then recommend 3 additional important landmarks nearby, but NOT on the list above.
-
-For each of the six landmarks, return:
-- 'name': the most relevant and identifiable name to show on a map, and nothing else
-- 'local': landmark local name in the native language of its country, used on its Wiki page
-- 'desc': a brief but informative summary (2-3 sentences, max 100 words)
-- 'loc': where is the landmark (district, city/region, state/province, country), not street address
-- 'lat': landmark's latitude
-- 'lon': landmark's longitude
-- 'type': what's kind of landmark (Historical, Natural, Cultural, Architecture, Tourist attraction, etc)
-
-Format the response as a valid JSON object with a "landmarks" field containing an array of objects.
-Each object should have the fields shown above.  Respond in my preferred locale: {locale}
-
-Example format:
-{
-  "landmarks": [
-    {
-      "name": "Golden Gate Bridge",
-      "local": "Golden Gate Bridge",
-      "desc": "An iconic symbol of San Francisco, the Golden Gate Bridge is a stunning suspension bridge",
-      "loc": "San Francisco, California, United States",
-      "lat": 37.775,
-      "lon": -122.419,
-      "type": "Tourist attraction",
-    },
-    {
-      "name": "Victoria Harbour",
-      "local": "維多利亞港",
-      "desc": "Victoria Harbour is the natural harbour separating Hong Kong Island from the Kowloon Peninsula",
-      "loc": "Kowloon, Hong Kong",
-      "lat": 22.2968,
-      "lon": 114.1694,
-      "type": "Tourist attraction",
-    }
-  ]
-}`,
-    },
     airport: {
       template: `Generate a list of airports nearby coordinates: {lat}, {lon}.
 If any, include uncontrolled airport in {location_name}.  Don't invent any airports.
@@ -182,26 +138,6 @@ Please locate the specific geographic location being asked about:
 
 Format the response as a valid JSON object with the fields shown above.
 Respond in my preferred locale: {locale}`,
-    },
-  },
-  destinations: {
-    title: `Landmark Description`,
-    description: `Prompts for generating detailed descriptions of landmarks`,
-    history: {
-      template: `Generate a brief historical overview of {landmark_name} located in {location_name}.
-Include when it was built/established, significant events, and its cultural importance.
-Keep the response under 150 words and focus on verified historical facts.`,
-    },
-    architecture: {
-      template: `Describe the architectural style and notable design elements of {landmark_name}.
-Include information about the architect (if known), unique features, and any
-interesting structural aspects. Keep the response under 150 words.`,
-    },
-    visitor_info: {
-      template: `Provide concise visitor information for {landmark_name}, including typical 
-visiting hours, best time to visit, any entrance fees, and 1-2 insider tips.
-Focus on practical information that would be useful for a first-time visitor.
-Keep the response under 100 words.`,
     },
   },
 };

@@ -10,6 +10,18 @@ body {
   width: 100%;
   height: 100%;
   overflow: hidden;
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    Arial,
+    sans-serif,
+    "Apple Color Emoji",
+    "Segoe UI Emoji",
+    "Segoe UI Symbol",
+    "Noto Color Emoji";
 }
 
 /* Map Container */
@@ -20,6 +32,56 @@ body {
   top: 0;
   left: 0;
   z-index: 1;
+}
+
+/* Sqaure icon button per Google map style */
+.control-button {
+  width: 40px;
+  height: 40px;
+  background-color: white;
+  border: none;
+  font-size: 22px;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  margin: 10px;
+  text-align: center;
+}
+
+.control-button:hover {
+  background-color: #f5f5f5;
+}
+
+.control-button:active {
+  background-color: #e0e0e0;
+}
+
+/* Active Marker and Landmark Styles */
+.active-marker {
+  background-color: #4285F4 !important;
+  border: 2px solid #ffc107 !important;
+  box-shadow:
+    0 0 0 2px rgba(255, 193, 7, 0.5),
+    0 2px 6px rgba(0, 0, 0, 0.4) !important;
+  transform: scale(1.2);
+  z-index: 100;
+  transition: all 0.3s ease;
+}
+
+.marker-element {
+  border: 2px solid white;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.active-landmark {
+  background-color: rgba(255, 87, 34, 0.1);
+  border-left: 3px solid #ff5722;
+  padding-left: 10px;
+  transform: translateX(3px);
+  transition: all 0.3s ease;
 }
 
 /* Loading Indicator */
@@ -60,77 +122,6 @@ body {
 .loading-text {
   font-size: 18px;
   color: #333;
-}
-
-/* Caching Notification */
-#caching-notification {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  z-index: 1000;
-  pointer-events: auto;
-}
-
-.caching-content {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  padding: 12px 16px;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 200px;
-  animation: slideInRight 0.3s ease-out;
-}
-
-@keyframes slideInRight {
-  from {
-    transform: translateX(100%);
-    opacity: 0;
-  }
-
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
-}
-
-.caching-spinner {
-  width: 16px;
-  height: 16px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top: 2px solid white;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-.caching-text {
-  font-size: 14px;
-  font-weight: 500;
-  flex: 1;
-}
-
-.dismiss-button {
-  background: none;
-  border: none;
-  color: rgba(255, 255, 255, 0.8);
-  font-size: 18px;
-  cursor: pointer;
-  padding: 0;
-  margin-left: 8px;
-  width: 20px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  transition: background-color 0.2s;
-}
-
-.dismiss-button:hover {
-  background-color: rgba(255, 255, 255, 0.2);
-  color: white;
 }
 
 /* Error Message */
@@ -192,8 +183,7 @@ body {
 }
 
 /* Landmarks Sidebar */
-#landmarks-sidebar,
-#route-sidebar {
+#info-sidebar {
   width: 180px;
   position: absolute;
   top: 50px;
@@ -202,15 +192,14 @@ body {
   border-radius: 4px;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
   max-height: calc(90% - 140px);
-  overflow-y: auto;
   z-index: 10;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Medium screens */
 @media screen and (min-width: 1024px) {
-
-  #landmarks-sidebar,
-  #route-sidebar {
+  #info-sidebar {
     width: 210px;
   }
 
@@ -221,9 +210,7 @@ body {
 
 /* Larger screens */
 @media screen and (min-width: 1200px) {
-
-  #landmarks-sidebar,
-  #route-sidebar {
+  #info-sidebar {
     width: 240px;
   }
 
@@ -232,27 +219,35 @@ body {
   }
 }
 
-#landmarks-header {
+#info-header {
   display: flex;
-  justify-content: left;
+  justify-content: space-between;
+  align-items: center;
   position: sticky;
   top: 0;
   background-color: white;
-  padding-left: 10px;
   z-index: 11;
+  flex-shrink: 0;
 }
 
-#close-landmarks {
+#info-title-content {
+  flex-grow: 1;
+}
+
+#info-close-button {
   background: none;
   border: none;
   font-size: 24px;
   cursor: pointer;
   margin: 5px;
   text-align: center;
+  flex-shrink: 0;
 }
 
-#landmarks-list {
+#info-content {
   padding: 10px;
+  overflow-y: auto;
+  flex-grow: 1;
 }
 
 .landmark-item {
@@ -277,6 +272,12 @@ body {
   font-weight: bold;
   margin-bottom: 2px;
   font-size: 14px;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.landmark-name:hover {
+  text-decoration: underline;
 }
 
 .landmark-type {
@@ -294,52 +295,6 @@ body {
   font-size: 14px;
   color: #555;
   margin-bottom: 8px;
-}
-
-.landmark-image {
-  width: 100%;
-  max-width: 100%;
-  height: auto;
-  max-height: 200px;
-  border-radius: 4px;
-  margin-top: 5px;
-}
-
-/* Error styling */
-.landmark-item.error {
-  background-color: #fff8f8;
-}
-
-.landmark-item.error .landmark-name {
-  color: #e74c3c;
-}
-
-.landmark-item.error .landmark-summary p {
-  margin-bottom: 10px;
-}
-
-.landmark-item.error .landmark-summary ul {
-  margin-left: 20px;
-  margin-bottom: 10px;
-}
-
-.landmark-item.error .landmark-summary li {
-  margin-bottom: 5px;
-}
-
-.landmark-item.error button {
-  background-color: #3498db;
-  color: white;
-  border: none;
-  padding: 8px 15px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 13px;
-  margin-top: 10px;
-}
-
-.landmark-item.error button:hover {
-  background-color: #2980b9;
 }
 
 /* Settings Dialog */
@@ -428,7 +383,7 @@ body {
   transition: opacity 0.8s ease-in-out;
 }
 
-.table-scollable {
+.table-scrollable {
   flex-grow: 1;
   /* Allows the table area to fill available space */
   overflow-y: auto;
@@ -500,4 +455,140 @@ body {
 .hidden {
   display: none !important;
   /* visibility controlled by JS */
+}
+
+/* Bus Route Markers */
+.bus-marker-center {
+  width: 24px;
+  height: 24px;
+  background-color: #6aa8f7;
+  border: 2px solid white;
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.bus-marker-stop {
+  width: 10px;
+  height: 10px;
+  background-color: #28a745;
+  border: 1.5px solid white;
+  border-radius: 50%;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.bus-marker-nearest {
+  width: 20px;
+  height: 20px;
+  background-color: #f66a5b;
+  border: 2px solid white;
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.bus-marker-route-stop {
+  width: 12px;
+  height: 12px;
+  background-color: transparent;
+  border: 3px solid #ffc107;
+  border-radius: 50%;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+/* Route Popover */
+#route-popover {
+  position: fixed;
+  display: none;
+  /* Toggled by JS */
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 8px;
+  z-index: 2000;
+  align-items: flex-start;
+  pointer-events: none;
+}
+
+.route-pill {
+  color: black;
+  font-weight: bold;
+  padding: 6px 12px;
+  border-radius: 16px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  font-family: sans-serif;
+  font-size: 14px;
+  white-space: nowrap;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  pointer-events: auto;
+  cursor: pointer;
+  background-color: #ffffff;
+  /* Default */
+}
+
+.route-pill.kmb {
+  background-color: #ffdddd;
+}
+
+.route-pill.ctb {
+  background-color: #ffffcc;
+}
+
+.route-pill.nlb,
+.route-pill.gmb {
+  background-color: #ddffdd;
+}
+
+.route-pill.active {
+  background-color: #ffc107;
+  color: white;
+}
+
+/* Route Sidebar */
+.route-sidebar-header {
+  padding: 8px;
+  border-bottom: 1px solid #ddd;
+}
+
+.route-sidebar-title {
+  font-size: 18px;
+  font-weight: bold;
+  color: #333;
+}
+
+.route-sidebar-company {
+  font-size: 12px;
+  color: #666;
+  font-weight: normal;
+  margin-left: 8px;
+}
+
+.route-sidebar-details {
+  font-size: 13px;
+  color: #555;
+  margin-top: 2px;
+}
+
+.stop-item-index {
+  display: inline-block;
+  width: 24px;
+  color: #888;
+}
+
+.route-stop-item {
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.route-stop-item:last-child {
+  border-bottom: none;
+}
+
+.route-stop-item:hover {
+  background-color: rgba(0, 0, 0, 0.03);
+}
+
+.route-stop-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
 }

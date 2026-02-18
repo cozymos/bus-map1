@@ -1,12 +1,12 @@
 /* eslint-disable no-undef */
 import { validateCoords, escapeHTML } from './utils.js';
-import { mapInterface } from './interfaces.js';
 import { i18n, setTooltip } from './lion.js';
 
 // DOM Elements
-const landmarkSidebar = document.getElementById('landmarks-sidebar');
-const landmarksList = document.getElementById('landmarks-list');
-const closeLandmarksButton = document.getElementById('close-landmarks');
+const infoSidebar = document.getElementById('info-sidebar');
+const infoContent = document.getElementById('info-content');
+const infoTitleContent = document.getElementById('info-title-content');
+const infoCloseButton = document.getElementById('info-close-button');
 
 // Map instance
 let map;
@@ -23,13 +23,8 @@ export function initLandmark() {
   }
 
   // Add click event to close landmarks panel
-  closeLandmarksButton.addEventListener('click', () => {
-    landmarkSidebar.classList.add('hidden');
-  });
-
-  mapInterface.setMapInterface({
-    displayLandmarks,
-    clearLandMarkers,
+  infoCloseButton.addEventListener('click', () => {
+    infoSidebar.classList.add('hidden');
   });
 }
 
@@ -41,6 +36,10 @@ export async function displayLandmarks(landmark_data) {
 
   // Clear existing info windows
   infoWindows.forEach((iw) => iw.close());
+
+  // Clear and prepare sidebar
+  infoContent.innerHTML = '';
+  infoTitleContent.innerHTML = '';
 
   // Process each landmark sequentially with proper async/await
   for (const landmark of landmark_data.landmarks) {
@@ -100,7 +99,7 @@ export async function displayLandmarks(landmark_data) {
   }
 
   // Show landmarks panel
-  landmarkSidebar.classList.remove('hidden');
+  infoSidebar.classList.remove('hidden');
 }
 
 /**
@@ -157,6 +156,151 @@ function createMarkerElement(title) {
   container.appendChild(titleElement);
 
   return container;
+}
+
+/**
+ * Create info window content for a place
+ */
+function createInfoWindowContent(landmark, index) {
+  const infoWindowContent = document.createElement('div');
+  infoWindowContent.style.maxWidth = '200px';
+
+  const titleElement = document.createElement('h3');
+  titleElement.style.marginTop = '0';
+  titleElement.style.marginBottom = '8px';
+  titleElement.style.fontSize = '16px';
+  titleElement.style.fontWeight = 'bold';
+  titleElement.textContent = landmark.name;
+  titleElement.style.cursor = 'pointer';
+  titleElement.addEventListener('click', () => {
+    highlightMarkerAndSidebar(index);
+  });
+  infoWindowContent.appendChild(titleElement);
+  return infoWindowContent;
+}
+
+/**
+ * Create sidebar element for a landmark
+ */
+function createSidebarElement(landmark, index) {
+  const landmarkElement = document.createElement('div');
+  landmarkElement.className = 'landmark-item';
+  landmarkElement.dataset.index = index;
+  landmarkElement.innerHTML = `
+    <div class="landmark-header">
+      <div class="landmark-name">${landmark.name}</div>
+      ${
+        landmark.type ? `<div class="landmark-type">${landmark.type}</div>` : ''
+      }
+    </div>
+    ${landmark.loc ? `<div class="landmark-address">${landmark.loc}</div>` : ''}
+    ${
+      landmark.desc
+        ? `<div class="landmark-summary">${landmark.desc}</div>`
+        : ''
+    }
+    ${
+      landmark.local && landmark.local != landmark.name
+        ? `<div class="landmark-address">${landmark.local}</div>`
+        : ''
+    }
+  `;
+  infoContent.appendChild(landmarkElement);
+  return landmarkElement;
+}
+
+/**
+ * Highlight marker and corresponding sidebar item
+ */
+function highlightMarkerAndSidebar(index) {
+  // Remove active class from all markers and sidebar items
+  for (const marker of landMarkers) {
+    const markerElement = marker.content.querySelector('.marker-element');
+    if (markerElement) {
+      markerElement.classList.remove('active-marker');
+    }
+  }
+
+  document.querySelectorAll('.landmark-item').forEach((item) => {
+    item.classList.remove('active-landmark');
+  });
+
+  // Add active class to current marker and sidebar item
+  const markerElement =
+    landMarkers[index].content.querySelector('.marker-element');
+  if (markerElement) {
+    markerElement.classList.add('active-marker');
+  }
+
+  infoSidebar.classList.remove('hidden');
+  const sidebarItem = document.querySelector(
+    `.landmark-item[data-index="${index}"]`
+  );
+  if (sidebarItem) {
+    sidebarItem.classList.add('active-landmark');
+    sidebarItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+}
+
+const screenWidthThreshold = 500; // The screen width below which is narrow
+const isNarrowScreen = window.innerWidth < screenWidthThreshold;
+
+/**
+ * Setup click handlers for marker and sidebar interaction
+ */
+function setupPlaceInteractions(
+  markerView,
+  infoWindow,
+  landmarkElement,
+  position,
+  index
+) {
+  // Marker click handler
+  markerView.addListener('gmp-click', () => {
+    infoWindows.forEach((iw) => iw.close());
+    infoWindow.open({
+      anchor: markerView,
+      map: map,
+    });
+    map.panTo(position);
+
+    if (isNarrowScreen) {
+      infoSidebar.classList.add('hidden');
+    }
+
+    if (!infoSidebar.classList.contains('hidden')) {
+      highlightMarkerAndSidebar(index);
+    }
+  });
+
+  // Sidebar click handler
+  const landmarkNameElement = landmarkElement.querySelector('.landmark-name');
+  landmarkNameElement.addEventListener('click', () => {
+    infoWindows.forEach((iw) => iw.close());
+    if (!isNarrowScreen) {
+      infoWindow.open({
+        anchor: markerView,
+        map: map,
+      });
+    }
+    highlightMarkerAndSidebar(index);
+
+    // Pans the map accounting for the sidebar width on narrow screens.
+    map.panTo(position);
+    if (isNarrowScreen) {
+      map.panBy((infoSidebar.offsetWidth - window.innerWidth) / 2, 0);
+    }
+  });
+}
+
+/**
+ * Clear all markers from the map
+ */
+export function clearLandMarkers() {
+  landMarkers.forEach((marker) => {
+    marker.map = null;
+  });
+  landMarkers.length = 0;
 }
 
 // Cache for 3D Map Overlay to prevent memory leaks
@@ -587,183 +731,4 @@ async function add3DMarkersAndPopovers(map3DElement, lib) {
   } catch (error) {
     console.error('Failed to add 3D markers and popovers:', error);
   }
-}
-
-/**
- * Create 3D icon button
- * @param {HTMLElement} container - Container element
- * @param {number} lat - Latitude
- * @param {number} lng - Longitude
- * @param {string} placeName - Name of the place
- */
-function create3DButton(container, lat, lon, placeName) {
-  if (lat == null || lon == null) return;
-  const button = document.createElement('button');
-  button.className = 'btn';
-  button.style.cssText = `
-    margin-top: 8px;
-    padding: 4px 8px;
-    font-size: 12px;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-  `;
-  button.innerHTML = '<span>3D</span>';
-  setTooltip(button, 'tooltips.view_in_3d');
-
-  button.addEventListener('click', (e) => {
-    e.stopPropagation();
-    create3DMapOverlay(lat, lon, placeName);
-  });
-
-  container.appendChild(button);
-}
-
-/**
- * Create info window content for a place
- */
-function createInfoWindowContent(landmark, index) {
-  const infoWindowContent = document.createElement('div');
-  infoWindowContent.style.maxWidth = '200px';
-
-  const titleElement = document.createElement('h3');
-  titleElement.style.marginTop = '0';
-  titleElement.style.marginBottom = '8px';
-  titleElement.style.fontSize = '16px';
-  titleElement.style.fontWeight = 'bold';
-  titleElement.textContent = landmark.name;
-  titleElement.style.cursor = 'pointer';
-  titleElement.addEventListener('click', () => {
-    highlightMarkerAndSidebar(index);
-  });
-  infoWindowContent.appendChild(titleElement);
-  return infoWindowContent;
-}
-
-/**
- * Create sidebar element for a landmark
- */
-function createSidebarElement(landmark, index) {
-  const landmarkElement = document.createElement('div');
-  landmarkElement.className = 'landmark-item';
-  landmarkElement.dataset.index = index;
-  landmarkElement.innerHTML = `
-    <div class="landmark-header">
-      <div class="landmark-name">${landmark.name}</div>
-      ${
-        landmark.type ? `<div class="landmark-type">${landmark.type}</div>` : ''
-      }
-    </div>
-    ${landmark.loc ? `<div class="landmark-address">${landmark.loc}</div>` : ''}
-    ${
-      landmark.desc
-        ? `<div class="landmark-summary">${landmark.desc}</div>`
-        : ''
-    }
-    <div class="landmark-actions"></div>
-    ${
-      landmark.local && landmark.local != landmark.name
-        ? `<div class="landmark-address">${landmark.local}</div>`
-        : ''
-    }
-  `;
-  const actionsContainer = landmarkElement.querySelector('.landmark-actions');
-  create3DButton(actionsContainer, landmark.lat, landmark.lon, landmark.name);
-  landmarksList.appendChild(landmarkElement);
-  return landmarkElement;
-}
-
-/**
- * Highlight marker and corresponding sidebar item
- */
-function highlightMarkerAndSidebar(index) {
-  // Remove active class from all markers and sidebar items
-  for (const marker of landMarkers) {
-    const markerElement = marker.content.querySelector('.marker-element');
-    if (markerElement) {
-      markerElement.classList.remove('active-marker');
-    }
-  }
-
-  document.querySelectorAll('.landmark-item').forEach((item) => {
-    item.classList.remove('active-landmark');
-  });
-
-  // Add active class to current marker and sidebar item
-  const markerElement =
-    landMarkers[index].content.querySelector('.marker-element');
-  if (markerElement) {
-    markerElement.classList.add('active-marker');
-  }
-
-  landmarkSidebar.classList.remove('hidden');
-  const sidebarItem = document.querySelector(
-    `.landmark-item[data-index="${index}"]`
-  );
-  if (sidebarItem) {
-    sidebarItem.classList.add('active-landmark');
-    sidebarItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }
-}
-
-const screenWidthThreshold = 500; // The screen width below which is narrow
-const isNarrowScreen = window.innerWidth < screenWidthThreshold;
-
-/**
- * Setup click handlers for marker and sidebar interaction
- */
-function setupPlaceInteractions(
-  markerView,
-  infoWindow,
-  landmarkElement,
-  position,
-  index
-) {
-  // Marker click handler
-  markerView.addListener('gmp-click', () => {
-    infoWindows.forEach((iw) => iw.close());
-    infoWindow.open({
-      anchor: markerView,
-      map: map,
-    });
-    map.panTo(position);
-
-    if (isNarrowScreen) {
-      landmarkSidebar.classList.add('hidden');
-    }
-
-    if (!landmarkSidebar.classList.contains('hidden')) {
-      highlightMarkerAndSidebar(index);
-    }
-  });
-
-  // Sidebar click handler
-  const landmarkNameElement = landmarkElement.querySelector('.landmark-name');
-  landmarkNameElement.addEventListener('click', () => {
-    infoWindows.forEach((iw) => iw.close());
-    if (!isNarrowScreen) {
-      infoWindow.open({
-        anchor: markerView,
-        map: map,
-      });
-    }
-    highlightMarkerAndSidebar(index);
-
-    // Pans the map accounting for the sidebar width on narrow screens.
-    map.panTo(position);
-    if (isNarrowScreen) {
-      map.panBy((landmarkSidebar.offsetWidth - window.innerWidth) / 2, 0);
-    }
-  });
-}
-
-/**
- * Clear all markers from the map
- */
-export function clearLandMarkers() {
-  landMarkers.forEach((marker) => {
-    marker.map = null;
-  });
-  landMarkers.length = 0;
 }

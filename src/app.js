@@ -1,30 +1,28 @@
 /* eslint-disable no-undef */
+import { initSearch, searchAirport, showUserLocation } from './search.js';
 import {
-  initSearch,
-  searchLandmarks,
-  showUserLocation,
+  initBusRoute,
   searchBusStop,
   toggleRouteSidebar,
   clearRouteState,
   routeState,
-} from './search.js';
+  streetZoom,
+} from './busroute.js';
 import { initLandmark, create3DMapOverlay } from './landmark.js';
 import {
+  getSettings,
   getConfig,
   parseMapParamsFromURL,
   setLoading,
   handleError,
-  normalizeLng,
   validateCoords,
 } from './utils.js';
-import { mapInterface, getGoogleMapsApiKey } from './interfaces.js';
 import { settingDialog } from './components.js';
 import { i18n, initi18n, updateTranslation, getGlobeEmoji } from './lion.js';
 
 const translationMap = {
   // mapping DOM selectors to translation keys
   '.loading-text': { property: 'textContent', strkey: 'app.loading_text' },
-  '.caching-text': { property: 'textContent', strkey: 'app.caching_text' },
   'input#search-input': {
     property: 'placeholder',
     strkey: 'app.search_placeholder',
@@ -32,114 +30,139 @@ const translationMap = {
 };
 
 // DOM Elements
-const mapElement = document.getElementById('map');
 const busStopsButton = document.getElementById('bus-stops');
 const searchLandmarksButton = document.getElementById('search-landmarks');
 const settingsButton = document.getElementById('settings-button');
 const localeButton = document.getElementById('locale-button');
 const searchSideBar = document.getElementById('search-bar-container');
-const landmarkSidebar = document.getElementById('landmarks-sidebar');
+const infoSidebar = document.getElementById('info-sidebar');
 const moreWrapper = document.getElementById('more-wrapper');
 const moreButton = document.getElementById('more-button');
 const moreMenu = document.getElementById('more-menu');
 
-// Default coordinates (San Francisco)
-let defaultLocation = { lat: 37.7749, lng: -122.4194 };
-let defaultZoom = 12;
+// Default coordinates (Hong Kong)
+let defaultLocation = { lat: 22.308, lng: 114.172 };
+let defaultZoom = streetZoom;
 
 // Map instance
 let map;
+let initialPosition;
 
-// Map initialization function - called by Google Maps API once loaded
+const mapId1 =
+  import.meta.env?.VITE_GOOGLE_MAP_ID1 || 'f61a40c10abb6e5a9caa3239';
+const mapId2 =
+  import.meta.env?.VITE_GOOGLE_MAP_ID2 || 'f61a40c10abb6e5aa3604fb2';
+let myMapId = mapId1;
+
+/**
+ * Main entry point called by Google Maps JS API callback
+ */
 async function initMap() {
-  const { ColorScheme } = await google.maps.importLibrary('core');
-
-  // Import 3D map library for photorealistic rendering
   try {
-    await google.maps.importLibrary('maps3d');
-  } catch (error) {
-    console.warn('3D Maps library failed to load:', error);
-  }
+    // 1. Explicitly import required libraries first to ensure 'google' is fully populated
+    await Promise.all([
+      google.maps.importLibrary('maps'),
+      google.maps.importLibrary('core'),
+      google.maps.importLibrary('marker'),
+    ]);
 
-  // Check if URL has coordinates and zoom parameters
-  let initialPosition;
-  const urlParams = parseMapParamsFromURL();
-  if (urlParams) {
-    initialPosition = {
-      center: urlParams.center,
-      zoom: urlParams.zoom !== null ? urlParams.zoom : defaultZoom,
-    };
-    console.debug('URL params:', initialPosition);
-  } else {
-    const config = await getConfig();
-    if (config?.defaults?.default_location) {
-      defaultLocation = {
-        lat: config.defaults.default_location.lat,
-        lng: config.defaults.default_location.lon,
+    const urlParams = parseMapParamsFromURL();
+    if (urlParams) {
+      initialPosition = {
+        center: urlParams.center,
+        zoom: urlParams.zoom !== null ? urlParams.zoom : defaultZoom,
       };
-      if (config?.defaults?.zoom_level)
-        defaultZoom = config.defaults.zoom_level;
+      console.debug('URL params:', initialPosition);
+    } else {
+      const config = await getConfig();
+      if (config?.defaults?.default_location) {
+        defaultLocation = {
+          lat: config.defaults.default_location.lat,
+          lng: config.defaults.default_location.lon,
+        };
+        if (config?.defaults?.zoom_level)
+          defaultZoom = config.defaults.zoom_level;
+      }
+
+      initialPosition = {
+        center: defaultLocation,
+        zoom: defaultZoom,
+      };
     }
 
-    initialPosition = {
-      center: defaultLocation,
-      zoom: defaultZoom,
+    await loadMap();
+
+    // When user clicks back or forward button
+    window.onpopstate = () => {
+      if (!map) return;
+      const panorama = map.getStreetView();
+      if (panorama && panorama.getVisible()) {
+        panorama.setVisible(false);
+      }
+      const urlParams = parseMapParamsFromURL();
+      if (urlParams) {
+        mapPanTo(urlParams.center.lat, urlParams.center.lng, urlParams.zoom);
+      }
     };
+  } catch (error) {
+    console.error('Failed to initialize map:', error);
+    handleError(i18n.t('errors.map_init_failed'));
+  } finally {
+    setLoading(false);
+  }
+}
+
+async function loadMap() {
+  const { Map } = await google.maps.importLibrary('maps');
+  const { ColorScheme } = await google.maps.importLibrary('core');
+
+  if (map) {
+    // Clear the old control to prevent duplicates
+    map = null;
+    const oldDiv = document.getElementById('map');
+    while (oldDiv.firstChild) {
+      oldDiv.removeChild(oldDiv.firstChild);
+    }
   }
 
-  // Create the map instance with standard 2D view (3D will be in overlays only)
   const mapConfig = {
-    center: initialPosition.center,
-    zoom: initialPosition.zoom !== null ? initialPosition.zoom : defaultZoom,
+    center: map ? map.getCenter() : initialPosition.center,
+    zoom: map ? map.getZoom() : initialPosition.zoom,
     colorScheme: ColorScheme.LIGHT,
 
-    // Adding map ID for advanced markers
-    mapId: import.meta.env?.VITE_GOOGLE_MAP_ID || 'f61a40c10abb6e5a9caa3239',
-
-    // UI controls optimized for 3D viewing
+    mapId: myMapId,
     fullscreenControl: true,
     fullscreenControlOptions: {
-      position: google.maps.ControlPosition.LEFT_BOTTOM,
+      position: google.maps.ControlPosition.RIGHT_BOTTOM,
     },
     zoomControl: true,
     mapTypeControl: false,
-    mapTypeControlOptions: {
-      style: google.maps.MapTypeControlStyle.HORIZONTAL_BAR,
-      position: google.maps.ControlPosition.BOTTOM_CENTER,
-      mapTypeIds: ['roadmap', 'satellite'],
-    },
-    cameraControl: false, // enable for pseudo-3D satellite view at higher zooms
+    cameraControl: false,
     streetViewControl: false,
     scaleControl: true,
-    rotateControl: true, // Essential for 3D map rotation
+    rotateControl: true, // for 3D rotation
   };
 
-  map = new google.maps.Map(mapElement, mapConfig);
+  // Make map instance globally available for other scripts
+  const mapDiv = document.getElementById('map');
+  map = new Map(mapDiv, mapConfig);
+  window.mapInstance = map;
 
-  let panorama = map.getStreetView();
-  // Add listener for Street View visibility changes
-  panorama.addListener('visible_changed', function () {
+  initSearch();
+  initLandmark();
+  initBusRoute(map);
+  await setupCustomControl();
+
+  const panorama = map.getStreetView();
+  panorama.addListener('visible_changed', () => {
     if (panorama.getVisible()) {
       searchSideBar.classList.add('hidden');
-      landmarkSidebar.classList.add('hidden');
+      infoSidebar.classList.add('hidden');
       clearRouteState();
     } else {
       searchSideBar.classList.remove('hidden');
     }
   });
-
-  // Make map instance globally available for other scripts
-  window.mapInstance = map;
-  mapInterface.setMapInterface({
-    getMapCenter,
-    mapPanTo,
-  });
-  initSearch();
-  initLandmark();
-  setupCustomControl();
-
-  // Hide loading indicator
-  setLoading(false);
 }
 
 /**
@@ -153,20 +176,21 @@ export function addMoreOption(strkey, handler) {
   item.setAttribute('data-i18n-text', strkey);
   item.addEventListener('click', (ev) => {
     handler(ev);
-    moreMenu.classList.remove('show'); // hide after selection
+    if (moreMenu) moreMenu.classList.remove('show');
   });
-  moreMenu.appendChild(item);
+  if (moreMenu) moreMenu.appendChild(item);
 }
 
 // when clicking elsewhere on the document
 document.addEventListener('click', () => {
-  moreMenu.classList.remove('show');
+  if (moreMenu) moreMenu.classList.remove('show');
 });
 
 /**
  * Set up custom controls
  */
 async function setupCustomControl() {
+  if (!map) return;
   // add each button into gmap DOM structure, attaching click listeners
   map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(busStopsButton);
   busStopsButton.addEventListener('click', async () => {
@@ -175,16 +199,14 @@ async function setupCustomControl() {
     }
   });
 
-  // Add hotkey [Space] for busStopsButton
+  // Hotkeys
   document.addEventListener('keydown', (event) => {
     if (event.code === 'Space') {
       const activeTag = document.activeElement.tagName;
-      if (
-        activeTag !== 'INPUT' &&
-        activeTag !== 'TEXTAREA' &&
-        activeTag !== 'SELECT' &&
-        activeTag !== 'BUTTON'
-      ) {
+      const isInput = ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(
+        activeTag
+      );
+      if (!isInput) {
         event.preventDefault();
         busStopsButton.click();
       }
@@ -201,7 +223,7 @@ async function setupCustomControl() {
     searchLandmarksButton
   );
   searchLandmarksButton.addEventListener('click', async () => {
-    await searchLandmarks();
+    await searchAirport();
   });
 
   map.controls[google.maps.ControlPosition.LEFT_BOTTOM].push(settingsButton);
@@ -222,112 +244,56 @@ async function setupCustomControl() {
   }
 }
 
-/**
- * Create a custom element for user location marker
- * @returns {HTMLElement} The user location marker element
- */
-function createUserLocationMarker() {
-  const element = document.createElement('div');
-  element.className = 'marker-element';
-  element.style.backgroundColor = '#F66A5B';
-  return element;
-}
-
-async function markUserLocation() {
-  try {
-    const targetLocation = await showUserLocation();
-    if (targetLocation) {
-      const { AdvancedMarkerElement } =
-        await google.maps.importLibrary('marker');
-      new AdvancedMarkerElement({
-        position: targetLocation,
-        map: map,
-        title: i18n.t('tooltips.user_location_marker'),
-        content: createUserLocationMarker(),
-      });
-    }
-  } catch (error) {
-    console.error(`Error with Geolocation: ${error.message}`);
-  }
-}
-
-export function getMapCenter(map) {
-  const center = map.getCenter();
-  return {
-    lat: center.lat(),
-    lng: normalizeLng(center.lng()),
-  };
-}
-
 export function mapPanTo(lat, lng, zoom = defaultZoom) {
-  if (!validateCoords(lat, lng)) {
-    console.error('Invalid coordinates to mapPanTo:', { lat, lng });
+  if (!map || !validateCoords(lat, lng)) return;
+  map.panTo({ lat, lng });
+  if (zoom) map.setZoom(zoom);
+}
+
+export function getGoogleMapsApiKey() {
+  if (!window.APP_CONFIG?.GOOGLE_MAPS_API_KEY) {
+    window.APP_CONFIG = window.APP_CONFIG || {};
+    window.APP_CONFIG.GOOGLE_MAPS_API_KEY =
+      import.meta.env?.VITE_GOOGLE_MAPS_API_KEY ||
+      getSettings()['GOOGLE_MAPS_API_KEY'];
+  }
+
+  return window.APP_CONFIG.GOOGLE_MAPS_API_KEY;
+}
+
+// Load Google Maps API dynamically via a script element
+function loadGoogleMapsAPI() {
+  const key = getGoogleMapsApiKey();
+  if (!key) {
+    handleError('Google Maps API key is not configured');
     return;
   }
 
-  map.panTo({ lat: lat, lng: lng });
-  map.setZoom(zoom ? zoom : map.getZoom());
-}
-
-// Load Google Maps API dynamically
-function loadGoogleMapsAPI() {
-  // Create script element
-  const script = document.createElement('script');
-  script.src = `https://maps.googleapis.com/maps/api/js?key=${getGoogleMapsApiKey()}&callback=initMap&loading=async&libraries=places,geometry,marker,maps3d&v=beta`;
-
-  // Make initMap available globally for the callback
   window.initMap = initMap;
+  console.log(
+    `${import.meta.env?.MODE || 'server'} mode: Google Maps loading...`
+  );
+  const script = document.createElement('script');
+  // Use a protocol-relative URL and ensure async/defer
+  script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&callback=initMap&loading=async&libraries=places,geometry,marker,maps3d&v=beta`;
+  script.async = true;
+  script.defer = true;
+  script.onerror = () => handleError('Could not load Google Maps');
 
-  // Add the script to the document
   document.head.appendChild(script);
-
-  // When user clicks back or forward button
-  window.onpopstate = () => {
-    if (map) {
-      const panorama = map.getStreetView();
-      if (panorama && panorama.getVisible()) {
-        panorama.setVisible(false);
-      }
-    }
-    const urlParams = parseMapParamsFromURL();
-    if (urlParams) {
-      mapPanTo(urlParams.center.lat, urlParams.center.lng, urlParams.zoom);
-    }
-  };
-}
-
-async function applyTranslations() {
-  Object.entries(translationMap).forEach(([selector, { property, strkey }]) => {
-    document.querySelectorAll(selector).forEach((el) => {
-      if (property in el || property === 'textContent') {
-        el[property] = i18n.t(strkey);
-      }
-    });
-  });
-
-  document.querySelectorAll('[data-i18n-text]').forEach((el) => {
-    const strkey = el.getAttribute('data-i18n-text');
-    const str_value = i18n.t(strkey);
-    el.textContent = str_value === strkey ? '' : str_value;
-  });
-
-  document.querySelectorAll('[data-i18n-title]').forEach((el) => {
-    const strkey = el.getAttribute('data-i18n-title');
-    el.title = i18n.t(strkey); // Set title for tooltips
-  });
 }
 
 // Initialize the app when DOM is loaded
 document.addEventListener('DOMContentLoaded', async () => {
   await initi18n();
   await settingDialog.require();
-  if (!getGoogleMapsApiKey()) {
-    handleError('Google Maps API key is not configured');
-    return;
-  }
 
-  // Load Google Maps API
   loadGoogleMapsAPI();
+
+  addMoreOption('app.toggle_details', async () => {
+    myMapId = myMapId === mapId1 ? mapId2 : mapId1;
+    await loadMap();
+  });
 
   let trafficLayer = null;
   addMoreOption('app.toggle_traffic', () => {
@@ -356,6 +322,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   addMoreOption('app.show_street_view', () => {
+    if (!map) return;
     const panorama = map.getStreetView();
     panorama.setPosition(map.getCenter());
     panorama.setVisible(true);
@@ -363,6 +330,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   addMoreOption('app.show_3d_aerial', () => {
+    if (!map) return;
     const center = map.getCenter();
     let placeName = 'Aerial View';
     if (routeState.activeId && routeState.lastStopName) {
@@ -374,12 +342,34 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   addMoreOption('app.user_location', async () => {
-    await markUserLocation();
+    await showUserLocation();
   });
 
   // Skip auto-translation if no resource bundles are loaded
   if (Object.keys(i18n.translations).length > 0) {
+    // async transation update while loading map
     await updateTranslation();
     await applyTranslations();
   }
 });
+
+async function applyTranslations() {
+  Object.entries(translationMap).forEach(([selector, { property, strkey }]) => {
+    document.querySelectorAll(selector).forEach((el) => {
+      if (property in el || property === 'textContent') {
+        el[property] = i18n.t(strkey);
+      }
+    });
+  });
+
+  document.querySelectorAll('[data-i18n-text]').forEach((el) => {
+    const strkey = el.getAttribute('data-i18n-text');
+    const str_value = i18n.t(strkey);
+    el.textContent = str_value === strkey ? '' : str_value;
+  });
+
+  document.querySelectorAll('[data-i18n-title]').forEach((el) => {
+    const strkey = el.getAttribute('data-i18n-title');
+    el.title = i18n.t(strkey); // Set title for tooltips
+  });
+}

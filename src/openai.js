@@ -1,124 +1,33 @@
-import { getConfig, distance_km } from './utils.js';
 import { GetPrompt, GetSystemMessage } from './prompt_utils.js';
+import {
+  getSettings,
+  handleError,
+  getConfig,
+  distance_km,
+  isTestMode,
+} from './utils.js';
 import { getLocationCoord } from './gmap.js';
-import { isTestMode, getOpenaiApiKey } from './interfaces.js';
 import { i18n } from './lion.js';
+
+function getOpenaiApiKey() {
+  if (!window.APP_CONFIG?.OPENAI_API_KEY) {
+    window.APP_CONFIG = window.APP_CONFIG || {};
+    window.APP_CONFIG.OPENAI_API_KEY =
+      import.meta.env?.VITE_OPENAI_API_KEY || getSettings()['OPENAI_API_KEY'];
+
+    if (!window.APP_CONFIG.OPENAI_API_KEY) {
+      handleError('OpenAI API key is not configured');
+    }
+  }
+
+  return window.APP_CONFIG.OPENAI_API_KEY;
+}
 
 async function getModelConfig() {
   const config = await getConfig();
   const model = config?.defaults?.openai_model || 'gpt-4.1-nano';
   const temperature = config?.defaults?.openai_temperature || 0.1;
   return { model, temperature };
-}
-
-// Implement a hydrid '3-3-3' Multi-Source Aggregation Cache:
-// 1. show [first 3] from 10x list {places_a}, which is popularity-based
-// 2. prompt LLM to pick [top 3] from places_a
-// 3. prompt LLM to generate [additional 3] outside of places_a
-// 4. cache 6x LLM responses
-export async function selectLandmarksWithGPT(
-  locationData,
-  placeList,
-  lat,
-  lon,
-  radius_km = 15,
-  locale = i18n.lang.preferLocale
-) {
-  // Check if OpenAI API key is available
-  if (!getOpenaiApiKey()) {
-    throw new Error('OpenAI API key is not configured');
-  }
-
-  if (!locationData || !Array.isArray(placeList) || placeList.length === 0) {
-    throw new Error('No landmarks found (no input location)');
-  }
-
-  try {
-    // convert list of places into a lookup table keyed by name
-    const placeNames = Object.fromEntries(
-      placeList.map((place) => [place.name, place])
-    );
-
-    // Get prompt from template
-    const prompt = GetPrompt('landmarks.selector', {
-      places_a: Object.keys(placeNames).join('\n'),
-      locale,
-    });
-
-    // Get system message from template
-    const systemMsg = GetSystemMessage('landmark_specialist');
-    if (!prompt || !systemMsg) {
-      throw new Error('Failed to load prompt templates');
-    }
-
-    const { model, temperature } = await getModelConfig();
-    console.info(
-      `Selecting from ${placeList.length} places nearby ${locationData.locationName} by ${model} (t=${temperature}) in ${locale}`
-    );
-    let landmarks_json = await callOpenAI(
-      model,
-      temperature,
-      systemMsg,
-      prompt
-    );
-    landmarks_json = landmarks_json?.landmarks;
-    if (!Array.isArray(landmarks_json) || landmarks_json.length === 0) {
-      throw new Error(
-        `No landmarks found or invalid JSON response from ${model}`
-      );
-    }
-
-    // Process the landmarks
-    const landmarks = [];
-    for (let i = 0; i < landmarks_json.length; i++) {
-      const item = landmarks_json[i];
-      if (typeof item !== 'object' || !item.name?.trim()) continue;
-
-      const landmarkName = item.name.trim();
-      let landmarkLat = item.lat ?? lat;
-      let landmarkLon = item.lon ?? lon;
-
-      const samePlace = placeNames[landmarkName];
-      if (samePlace) {
-        landmarkLat = samePlace.lat;
-        landmarkLon = samePlace.lon;
-      } else {
-        const query = `${landmarkName}, ${locationData.country}`;
-        const isValid = await checkLandmarkCoord(
-          query,
-          landmarkLat,
-          landmarkLon,
-          lat,
-          lon,
-          radius_km
-        );
-        if (!isValid) continue;
-      }
-
-      const landmark = {
-        name: landmarkName,
-        local: item.local || '',
-        desc: item.desc || '',
-        lat: parseFloat(landmarkLat),
-        lon: parseFloat(landmarkLon),
-        loc: item.loc || locationData.locationName,
-        type: samePlace?.type || item.type || model,
-      };
-
-      landmarks.push(landmark);
-      console.debug(`Pick ${i}: ${landmarkName} . ${landmark.local}`);
-    }
-
-    return {
-      location: locationData.locationName,
-      coordinates: [lat, lon],
-      landmarks: landmarks,
-      cache_type: 'gpt_select',
-    };
-  } catch (error) {
-    console.error('Error getting landmarks:', error);
-    throw error;
-  }
 }
 
 // Get landmarks near location using OpenAI API

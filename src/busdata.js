@@ -1,21 +1,40 @@
 /**
   Manage the static hkbus-dataset 'on-disk in-memory':
-  - Read `hkbus.md` for dataset file, JSON structure and data schema
+  - Read `hkbus.md` about dataset file, JSON structure and data schema
   - API: Spatial proximity lookup, queries for Stop/Routes metadata
-  - Data model: optimized for Stop vs routes 'join-like' access pattern
+  - Data model: optimized for in-memory Stop/routes access pattern
+  - cache IndexedDB on-disk with idb-keyval wrapper
  */
 
 import { fetchJSON } from './utils.js';
-import { get, set } from 'https://cdn.jsdelivr.net/npm/idb-keyval@6/+esm';
 
 const CACHE_KEY = 'hkbus_data_v1';
+const isBrowser =
+  typeof window !== 'undefined' && typeof window.document !== 'undefined';
 
 async function getBusCache() {
-  try { return await get(CACHE_KEY); } catch (e) { console.warn('IDB Read Error', e); return null; }
+  if (!isBrowser) return null;
+  try {
+    const { get } = await import(
+      'https://cdn.jsdelivr.net/npm/idb-keyval@6/+esm'
+    );
+    return await get(CACHE_KEY);
+  } catch (e) {
+    console.warn('IDB Read Error', e);
+    return null;
+  }
 }
 
 async function setBusCache(data) {
-  try { await set(CACHE_KEY, data); } catch (e) { console.warn('IDB Write Error', e); }
+  if (!isBrowser) return;
+  try {
+    const { set } = await import(
+      'https://cdn.jsdelivr.net/npm/idb-keyval@6/+esm'
+    );
+    await set(CACHE_KEY, data);
+  } catch (e) {
+    console.warn('IDB Write Error', e);
+  }
 }
 
 const onlyBuses = ['kmb', 'ctb'];
@@ -127,12 +146,18 @@ class HKBusData {
       // 0. Operator Filter
       if (operators && operators.length > 0) {
         const stopOps = this.stopToOperators[stop.id];
-        if (!stopOps) continue;
-        let match = false;
-        for (const op of operators) {
-          if (stopOps.has(op)) match = true;
+        if (!stopOps) {
+          continue; // Strictly exclude stops with no operator info.
+        } else {
+          let match = false;
+          for (const op of operators) {
+            if (stopOps.has(op)) {
+              match = true;
+              break;
+            }
+          }
+          if (!match) continue;
         }
-        if (!match) continue;
       }
 
       // 1. Fast Box Check (Eliminates 99% of candidates instantly)
@@ -211,7 +236,10 @@ class HKBusData {
         if (!stopOps) continue;
         let match = false;
         for (const op of operators) {
-          if (stopOps.has(op)) match = true;
+          if (stopOps.has(op)) {
+            match = true;
+            break;
+          }
         }
         if (!match) continue;
       }

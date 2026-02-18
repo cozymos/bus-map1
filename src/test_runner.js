@@ -95,6 +95,94 @@ async function loadConfig() {
   }
 }
 
+/**
+ * Test suite for the findStopsNear function in HKBusData.
+ */
+async function testFindStopsNear() {
+  log('\n--- Testing findStopsNear() ---');
+  let allTestsPassed = true;
+
+  // 1. SETUP: Create a controlled, mock dataset.
+  // We define stops with predictable distances from our search center (22.3, 114.1).
+  const mockStopsArray = [
+    { id: 'A', name: 'Stop A (11m)', location: { lat: 22.3001, lng: 114.1 } }, // ~11m away
+    { id: 'B', name: 'Stop B (51m)', location: { lat: 22.3, lng: 114.1005 } }, // ~51m away
+    { id: 'C', name: 'Stop C (111m)', location: { lat: 22.299, lng: 114.1 } }, // ~111m away
+    { id: 'D', name: 'Stop D (204m)', location: { lat: 22.3, lng: 114.102 } }, // ~204m away
+    { id: 'E', name: 'Stop E (10m)', location: { lat: 22.3, lng: 114.0999 } }, // ~10m away (closest)
+  ];
+
+  const mockStopToOperators = {
+    A: new Set(['kmb']),
+    B: new Set(['ctb']),
+    C: new Set(['kmb']),
+    D: new Set(['ctb', 'nlb']), // Jointly operated
+    // Stop E has no operator entry
+  };
+
+  // 2. ISOLATION: Instantiate HKBusData and inject our mock data directly.
+  const { hkbusData } = await import('./busdata.js');
+  hkbusData.stopsArray = mockStopsArray;
+  hkbusData.stopToOperators = mockStopToOperators;
+  hkbusData.data = { stopList: {}, routeList: {} }; // Prevent null reference
+
+  // Simple assertion helper for clear test results
+  const check = (name, actual, expected) => {
+    const actualIds = actual.map((s) => s.id).join(',');
+    const expectedIds = expected.join(',');
+    if (actualIds === expectedIds) {
+      log(`✅ PASSED: ${name}`);
+    } else {
+      error(`FAILED: ${name}`);
+      log(`  -> Expected: [${expectedIds}]`);
+      log(`  -> Got:      [${actualIds}]`);
+      allTestsPassed = false;
+    }
+  };
+
+  // 3. EXECUTION: Run a series of test cases against the mock data.
+  const centerLat = 22.3;
+  const centerLng = 114.1;
+
+  // Test Case 1: Basic search, should return stops within 60m, sorted by distance.
+  let result1 = hkbusData.findStopsNear(centerLat, centerLng, 60);
+  check('Basic search within 60m', result1, ['A', 'B']);
+
+  // Test Case 2: `maxResult` limit should truncate the result set.
+  let result2 = hkbusData.findStopsNear(centerLat, centerLng, 60, 2);
+  check('maxResult limit of 2', result2, ['A', 'B']);
+
+  // Test Case 3: Auto-expansion. Initial radius (40m) finds 2 stops, which is < minResult (3).
+  // The function should auto-expand the search to 2x radius (80m) to meet the minimum.
+  let result3 = hkbusData.findStopsNear(centerLat, centerLng, 40, 10, 3);
+  check('Auto-expansion when minResult is not met', result3, ['A', 'B', 'C']);
+
+  // Test Case 4: Operator filter. Should only return stops operated by 'kmb'.
+  let result4 = hkbusData.findStopsNear(centerLat, centerLng, 120, 10, 1, [
+    'kmb',
+  ]);
+  check("Operator filter for 'kmb'", result4, ['A', 'C']);
+
+  // Test Case 5: Joint operator filter. Should find stops operated by 'nlb'.
+  let result5 = hkbusData.findStopsNear(centerLat, centerLng, 300, 10, 1, [
+    'nlb',
+  ]);
+  check("Operator filter for 'nlb' (joint route)", result5, ['D']);
+
+  // Test Case 6: Skipped as requested. The auto-expansion logic is designed
+  // to avoid returning no results, making this test case invalid.
+  // let result6 = hkbusData.findStopsNear(centerLat, centerLng, 5);
+  // check('No results for a very small radius', result6, []);
+
+  // Test Case 7: Fallback to max radius. Initial radius (10m) finds 0 stops.
+  // 2x radius (20m) finds 2 stops. Still < minResult (3).
+  // Should fall back to the 4x max search area (40m) and return what it finds there.
+  let result7 = hkbusData.findStopsNear(centerLat, centerLng, 10, 10, 3);
+  check('Fallback to max search area', result7, ['A']);
+
+  return allTestsPassed;
+}
+
 async function runAllTests() {
   log('Testing getConfig()');
   const config = await loadConfig();
@@ -114,7 +202,6 @@ async function runAllTests() {
   const default_lat = default_location.lat;
   const default_lon = default_location.lon;
   log(`🌍 Default location: (${default_lat}, ${default_lon})`);
-  const default_radius = config?.defaults?.search_radius;
 
   log('Testing getLocationDetails()');
   const { getLocationDetails } = await import('./gmap.js');
@@ -137,57 +224,6 @@ async function runAllTests() {
   }
   log('✅ getLocationCoord passed', coords.lat, coords.lon);
 
-  log('Testing getLandmarksWithGPT()');
-  const { getLandmarksWithGPT } = await import('./openai.js');
-  const landmarkData = await getLandmarksWithGPT(
-    locationData,
-    default_lat,
-    default_lon
-  );
-  if (
-    !landmarkData ||
-    !landmarkData.landmarks ||
-    !Array.isArray(landmarkData.landmarks)
-  ) {
-    error('getLandmarksWithGPT returned invalid landmarks');
-    return false;
-  }
-  log('✅ getLandmarksWithGPT passed', {
-    count: landmarkData.landmarks.length,
-  });
-
-  log('Testing setCachedLandmarks()');
-  const { setCachedLandmarks } = await import('./cache.js');
-  setCachedLandmarks(default_lat, default_lon, default_radius, landmarkData);
-  log('✅ setCachedLandmarks passed');
-
-  log('Testing getCachedLandmarks()');
-  const { getCachedLandmarks } = await import('./cache.js');
-  const cachedData = getCachedLandmarks(
-    default_lat,
-    default_lon,
-    default_radius
-  );
-  if (!cachedData || !cachedData.landmarks) {
-    error('getCachedLandmarks failed to retrieve data');
-    return false;
-  }
-  log('✅ getCachedLandmarks passed', {
-    count: cachedData.landmarks.length,
-  });
-
-  log('Testing get_landmark_data()');
-  const { landmarkService } = await import('./services.js');
-  const backendData = await landmarkService.get_landmark_data(
-    default_lat,
-    default_lon
-  );
-  if (!backendData || !backendData.landmarks) {
-    error('get_landmark_data returned invalid data');
-    return false;
-  }
-  log('✅ get_landmark_data passed', { count: backendData.landmarks.length });
-
   log('Testing PlaceTextSearch()');
   const { PlaceTextSearch } = await import('./gmap.js');
   const searchResult = await PlaceTextSearch(default_location.name);
@@ -206,11 +242,18 @@ async function runAllTests() {
   }
   log('✅ queryLocationWithGPT passed', { count: queryResult.landmarks });
 
+  log('Testing findStopsNear()');
+  if (!(await testFindStopsNear())) {
+    error('findStopsNear returned invalid data');
+    return false;
+  }
+  log('✅ findStopsNear passed');
+
   return true;
 }
 
 async function testRunner() {
-  const { isTestMode } = await import('./interfaces.js');
+  const { isTestMode } = await import('./utils.js');
   console.log(
     `🧪 Run test enabled - ${
       isTestMode() ? 'test mode (mock data)' : 'online (live API)'
@@ -227,7 +270,7 @@ async function testRunner() {
 // CLI argument parsing for Node.js
 async function parseArgs() {
   if (!isNode) return;
-  const { enableTestMode } = await import('./interfaces.js');
+  const { enableTestMode } = await import('./utils.js');
   const args = process.argv.slice(2);
   for (const arg of args) {
     if (arg === '--online') {
@@ -251,7 +294,7 @@ Options:
 
 async function parseURLParams() {
   if (!isBrowser) return;
-  const { enableTestMode } = await import('./interfaces.js');
+  const { enableTestMode } = await import('./utils.js');
   const urlParams = new URLSearchParams(window.location.search);
   if (urlParams.has('test')) {
     const param = urlParams.get('test');

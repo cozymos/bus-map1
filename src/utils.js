@@ -178,6 +178,41 @@ export function parseMapParamsFromURL() {
 }
 
 /**
+ * Get the current center of the map
+ */
+export function getMapCenter(map) {
+  const center = map.getCenter();
+  return {
+    lat: center.lat(),
+    lng: normalizeLng(center.lng()),
+  };
+}
+
+/**
+ * Update the URL parameters with the current map center and zoom level
+ */
+export function updateUrlParameters(map, pushState = false) {
+  if (!map) return;
+
+  const center = getMapCenter(map);
+  const lat = normalizeCoordValue(center.lat);
+  const lon = normalizeCoordValue(center.lng);
+  const zoom = parseInt(map.getZoom());
+
+  // Create URL with the new parameters
+  const urlParams = new URLSearchParams(window.location.search);
+  urlParams.set('lat', lat);
+  urlParams.set('lon', lon);
+  urlParams.set('zoom', zoom);
+
+  const newUrl = `${window.location.pathname}?${urlParams.toString()}`;
+  console.debug('URL:', newUrl);
+
+  if (pushState) window.history.pushState({ lat, lon, zoom }, '', newUrl);
+  else window.history.replaceState({ lat, lon, zoom }, '', newUrl);
+}
+
+/**
  * Calculate distance between two coordinates in kilometers
  * @param {number} lat1 - First latitude
  * @param {number} lng1 - First longitude
@@ -253,4 +288,15 @@ export function handleError(error) {
   console.error(error);
   setLoading(false);
   showError(error);
+}
+
+export function isTestMode() {
+  if (!window.TEST_MODE)
+    // vite --mode test
+    window.TEST_MODE = import.meta.env?.MODE === 'test';
+  return window.TEST_MODE;
+}
+
+export function enableTestMode(flag) {
+  window.TEST_MODE = flag;
 }

@@ -1,5 +1,5 @@
-import { getConfig, validateCoords } from './utils.js';
-import { isTestMode, getGoogleMapsApiKey } from './interfaces.js';
+import { getGoogleMapsApiKey } from './app.js';
+import { getConfig, validateCoords, isTestMode } from './utils.js';
 import { getCountryLanguage } from './lion.js';
 import { i18n } from './lion.js';
 
@@ -212,7 +212,7 @@ export async function PlaceTextSearch(
   }
 
   try {
-    // console.debug('Text Search Req:', requestBody);
+    console.debug('Text Search Req:', requestBody);
     const response = await fetch(apiUrl, {
       method: 'POST',
       headers: headers,
@@ -226,7 +226,7 @@ export async function PlaceTextSearch(
     }
 
     const data = await response.json();
-    // console.debug('Text Search Resp:', data);
+    console.debug('Text Search Resp:', data);
 
     // Check if we need to make a new request with a different language code
     if (
@@ -349,7 +349,7 @@ export async function PlaceNearbySearch(
     }
 
     const data = await response.json();
-    // console.debug('Nearby Search Resp:', data);
+    console.debug('Nearby Search Resp:', data);
     const place_data = placeData(data?.places);
     place_data.cache_type = 'nearby_places';
     return place_data;

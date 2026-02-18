@@ -1,10 +1,24 @@
-import { getGeminiApiKey } from './interfaces.js';
 import { GetPrompt, GetSystemMessage } from './prompt_utils.js';
+import { getSettings } from './utils.js';
 import { i18n } from './lion.js';
 
 // Configuration for the Gemini model
 const MODEL_NAME = 'gemini-2.0-flash';
 const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent`;
+
+export function getGeminiApiKey() {
+  if (!window.APP_CONFIG?.GEMINI_API_KEY) {
+    window.APP_CONFIG = window.APP_CONFIG || {};
+    window.APP_CONFIG.GEMINI_API_KEY =
+      import.meta.env?.VITE_GEMINI_API_KEY || getSettings()['GEMINI_API_KEY'];
+
+    if (!window.APP_CONFIG.GEMINI_API_KEY) {
+      console.warn('Gemini API key is not configured');
+    }
+  }
+
+  return window.APP_CONFIG.GEMINI_API_KEY;
+}
 
 /**
  * Call Gemini API with Google Maps Grounding tool

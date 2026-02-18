@@ -1,4 +1,4 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -6,85 +6,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Mini HKBus Map</title>
   <link rel="stylesheet" href="/src/style.css" />
-
-  <style>
-    /* Sqaure icon button per Google map style */
-    .control-button {
-      width: 40px;
-      height: 40px;
-      background-color: white;
-      border: none;
-      font-size: 22px;
-      cursor: pointer;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-      margin: 10px;
-      text-align: center;
-    }
-
-    .control-button:hover {
-      background-color: #f5f5f5;
-    }
-
-    .control-button:active {
-      background-color: #e0e0e0;
-    }
-
-    /* Active Marker and Landmark Styles */
-    .active-marker {
-      background-color: #4285F4 !important;
-      border: 2px solid #ffc107 !important;
-      box-shadow:
-        0 0 0 2px rgba(255, 193, 7, 0.5),
-        0 2px 6px rgba(0, 0, 0, 0.4) !important;
-      transform: scale(1.2);
-      z-index: 100;
-      transition: all 0.3s ease;
-    }
-
-    .marker-element {
-      border: 2px solid white;
-      border-radius: 50%;
-      width: 24px;
-      height: 24px;
-      cursor: pointer;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-    }
-
-    .active-landmark {
-      background-color: rgba(255, 87, 34, 0.1);
-      border-left: 3px solid #ff5722;
-      padding-left: 10px;
-      transform: translateX(3px);
-      transition: all 0.3s ease;
-    }
-
-    .landmark-name {
-      cursor: pointer;
-      transition: color 0.2s ease;
-    }
-
-    .landmark-name:hover {
-      text-decoration: underline;
-    }
-
-    .landmark-image {
-      cursor: pointer;
-      transition: opacity 0.2s ease;
-    }
-
-    .landmark-image:hover {
-      opacity: 0.9;
-    }
-
-    body {
-      font-family:
-        'Inter',
-        -apple-system,
-        BlinkMacSystemFont,
-        Roboto,
-        sans-serif;
-    }
-  </style>
 </head>
 
 <body>
@@ -120,10 +41,7 @@
     <!-- Form input to auto-save history -->
     <form id="search-form" onsubmit="return false;">
       <div id="search-bar">
-        <input type="search" id="search-input" name="landmark location" list="search-history" placeholder=""
-          autocomplete="on" />
-        <!-- on-demand display of saved location -->
-        <datalist id="search-history"></datalist>
+        <input type="search" id="search-input" name="landmark location" placeholder="" autocomplete="on" />
         <button id="search-button" type="submit" data-i18n-title="tooltips.search_location">
           🔍
         </button>
@@ -131,31 +49,20 @@
     </form>
   </div>
 
-  <!-- Landmarks Sidebar -->
-  <div id="landmarks-sidebar" class="hidden">
-    <div id="landmarks-header">
-      <button id="close-landmarks" data-i18n-title="tooltips.close_landmarks">
+  <div id="info-sidebar" class="hidden">
+    <div id="info-header">
+      <div id="info-title-content"></div>
+      <button id="info-close-button" data-i18n-title="tooltips.close_sidebar">
         &times;
       </button>
     </div>
-    <div id="landmarks-list"></div>
+    <div id="info-content"></div>
   </div>
 
   <!-- Loading Indicator -->
   <div id="loading">
     <div class="loading-spinner"></div>
     <div class="loading-text">🌐 Loading map…</div>
-  </div>
-
-  <!-- Caching Notification -->
-  <div id="caching-notification" class="hidden">
-    <div class="caching-content">
-      <div class="caching-spinner"></div>
-      <div class="caching-text">🏛️ Finding landmarks…</div>
-      <button id="dismiss-caching" class="dismiss-button" data-i18n-title="tooltips.dismiss_caching">
-        &times;
-      </button>
-    </div>
   </div>
 
   <!-- Error Message -->
@@ -201,7 +108,7 @@
         </div>
       </div>
 
-      <div class="table-scollable">
+      <div class="table-scrollable">
         <table id="settings-table">
           <tbody>
             <!-- Rows will be dynamically inserted here -->
@@ -213,7 +120,6 @@
   <script>
     window.APP_CONFIG = {
       jsonConfig_url: '/config.json',
-      CACHE_TTL_HOURS: 48,
     };
   </script>
 
