@@ -61,12 +61,26 @@ class HKBusData {
         this.data = cached;
         console.debug('Loaded bus data from IDB cache');
       } else {
-        const response = await fetchJSON(dataset);
-        if (!response.ok) {
-          console.warn(`Failed to load HKBus data: ${response.status}`);
-          return null;
+        if (isBrowser) {
+          const response = await fetchJSON(dataset);
+          if (!response.ok) {
+            console.warn(`Failed to load HKBus data: ${response.status}`);
+            return null;
+          }
+          this.data = await response.json();
+        } else {
+          // Node.js environment: read from filesystem
+          const fs = await import('fs');
+          const path = await import('path');
+          // Assumes the script is run from the project root
+          const filePath = path.resolve(
+            process.cwd(),
+            'public',
+            dataset.substring(1)
+          );
+          const fileContent = fs.readFileSync(filePath, 'utf-8');
+          this.data = JSON.parse(fileContent);
         }
-        this.data = await response.json();
         setBusCache(this.data);
       }
 
@@ -182,33 +196,25 @@ class HKBusData {
     const r1Sq = radiusMeters * radiusMeters;
     const r2Sq = radiusMeters * 2 * (radiusMeters * 2);
 
-    // Count within r1
-    let count1 = 0;
-    for (const item of candidates) {
-      if (item.distSq <= r1Sq) count1++;
-      else break; // Sorted
-    }
+    let endIndex = candidates.findIndex((c) => c.distSq > r1Sq);
+    if (endIndex === -1) endIndex = candidates.length; // all are within r1
 
-    if (count1 >= minResult) {
+    if (endIndex >= minResult) {
       return candidates
-        .slice(0, Math.min(count1, maxResult))
+        .slice(0, Math.min(endIndex, maxResult))
         .map((item) => item.stop);
     }
 
-    // Count within r2
-    let count2 = 0;
-    for (const item of candidates) {
-      if (item.distSq <= r2Sq) count2++;
-      else break;
-    }
+    endIndex = candidates.findIndex((c) => c.distSq > r2Sq);
+    if (endIndex === -1) endIndex = candidates.length; // all are within r2
 
-    if (count2 >= minResult) {
+    if (endIndex >= minResult) {
       return candidates
-        .slice(0, Math.min(count2, maxResult))
+        .slice(0, Math.min(endIndex, maxResult))
         .map((item) => item.stop);
     }
 
-    // Fallback to maxRadius (r4)
+    // Fallback to maxRadius if minResult is still not met
     return candidates.slice(0, maxResult).map((item) => item.stop);
   }
 
@@ -226,9 +232,17 @@ class HKBusData {
     const latDeg = 1 / 111000;
     const lngDeg = 1 / 102000; // cos(22.3) approx adjustment
 
+    // Bounding box for quick filtering
+    const latDiff = radiusMeters * latDeg;
+    const lngDiff = radiusMeters * lngDeg;
+
     for (let i = 0; i < this.stopsArray.length; i++) {
       const stop = this.stopsArray[i];
       if (!stop.location) continue;
+
+      // 1. Fast Box Check (if radius is finite)
+      if (Math.abs(stop.location.lat - lat) > latDiff) continue;
+      if (Math.abs(stop.location.lng - lng) > lngDiff) continue;
 
       // Operator Filter
       if (operators && operators.length > 0) {

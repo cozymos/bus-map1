@@ -16,15 +16,12 @@ import {
   getMapCenter,
   isTestMode,
 } from './utils.js';
-import { mapPanTo } from './app.js';
+import { mapPanTo, defaultZoom } from './app.js';
 import { displayLandmarks, clearLandMarkers } from './landmark.js';
 import { i18n } from './lion.js';
-import { clearRouteState } from './busroute.js';
 
 // DOM Elements
 const searchSideBar = document.getElementById('search-bar-container');
-const searchInput = document.getElementById('search-input');
-const searchButton = document.getElementById('search-button');
 const infoSidebar = document.getElementById('info-sidebar');
 const infoContent = document.getElementById('info-content');
 
@@ -39,55 +36,14 @@ export function initSearch() {
     return;
   }
 
-  setupTextSearch();
+  searchSideBar.classList.remove('hidden');
 }
 
 /**
- * Set up text search functionality
+ * Resets module-level state variables for search.
  */
-function setupTextSearch() {
-  searchSideBar.classList.remove('hidden');
-
-  // Add click event to search button
-  searchButton.addEventListener('click', () => {
-    if (searchInput.style.display === 'none') {
-      searchInput.style.display = '';
-      searchInput.focus();
-      return;
-    }
-    const query = searchInput.value.trim();
-    if (query) searchText(query);
-  });
-
-  // Add event listener for Enter key in search input
-  searchInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
-      const query = searchInput.value.trim();
-      if (query) searchText(query);
-    }
-  });
-
-  searchInput.addEventListener('focus', (e) => {
-    clearRouteState();
-    infoSidebar.classList.add('hidden');
-    e.target.select();
-  });
-
-  window.addEventListener('keydown', (e) => {
-    // Don't trigger if user is typing in an input already
-    const isTyping =
-      document.activeElement.tagName === 'INPUT' ||
-      document.activeElement.tagName === 'TEXTAREA';
-    if (isTyping) return;
-
-    if (e.key === '/') {
-      e.preventDefault();
-      searchInput.focus();
-      searchInput.select(); // select all text
-    } else if (e.key === 'Escape') {
-      clearRouteState();
-    }
-  });
+export function resetSearchState() {
+  lastQuery = null;
 }
 
 /**
@@ -95,7 +51,7 @@ function setupTextSearch() {
  * @param {string} query - The search query entered by the user
  */
 let lastQuery = null;
-async function searchText(query) {
+export async function searchText(query) {
   try {
     if (!query || query.trim() === '') {
       return;
@@ -113,7 +69,7 @@ async function searchText(query) {
       const coords = await getLocationCoord(query);
       if (coords && validateCoords(coords.lat, coords.lon)) {
         console.debug(`location of "${query}": ${coords.lat}, ${coords.lon}`);
-        mapPanTo(coords.lat, coords.lon);
+        mapPanTo(coords.lat, coords.lon, defaultZoom);
         updateUrlParameters(map, true);
         return;
       }
@@ -122,7 +78,7 @@ async function searchText(query) {
     // Pass 2: call Google Text Search API
     let locData = await PlaceTextSearch(query, i18n.userLocale);
     if (locData?.landmarks?.length > 0) {
-      mapPanTo(locData.landmarks[0].lat, locData.landmarks[0].lon);
+      mapPanTo(locData.landmarks[0].lat, locData.landmarks[0].lon, defaultZoom);
       lastQuery = null;
     } else {
       handleError(i18n.t('errors.location_not_found'));
@@ -171,7 +127,7 @@ function getCurrentPosition() {
 export async function showUserLocation() {
   updateUrlParameters(map, false);
   const userLocation = await getCurrentPosition();
-  mapPanTo(userLocation.lat, userLocation.lng, 0);
+  mapPanTo(userLocation.lat, userLocation.lng, defaultZoom);
   updateUrlParameters(map, true);
   return userLocation;
 }

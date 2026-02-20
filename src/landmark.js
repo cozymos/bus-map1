@@ -1,12 +1,15 @@
 /* eslint-disable no-undef */
-import { validateCoords, escapeHTML } from './utils.js';
+import { validateCoords, escapeHTML, screenWidthThreshold } from './utils.js';
 import { i18n, setTooltip } from './lion.js';
+import { mapPanTo } from './app.js';
 
 // DOM Elements
 const infoSidebar = document.getElementById('info-sidebar');
 const infoContent = document.getElementById('info-content');
 const infoTitleContent = document.getElementById('info-title-content');
-const infoCloseButton = document.getElementById('info-close-button');
+
+// 3D View constants
+const AERIAL_VIEW_ALTITUDE = 150; // Altitude in meters for the 3D camera
 
 // Map instance
 let map;
@@ -21,11 +24,6 @@ export function initLandmark() {
     console.error('Map instance not found. Please initialize the map first.');
     return;
   }
-
-  // Add click event to close landmarks panel
-  infoCloseButton.addEventListener('click', () => {
-    infoSidebar.classList.add('hidden');
-  });
 }
 
 /**
@@ -110,51 +108,21 @@ export async function displayLandmarks(landmark_data) {
 function createMarkerElement(title) {
   // Create a container for the marker
   const container = document.createElement('div');
-  container.className = 'marker-container';
-  container.style.position = 'relative';
-
-  const makerColor = '#BBB';
-  const highlightMaker = '#888';
+  container.className = 'marker-container'; // Class for position: relative
 
   // Create dot element
   const element = document.createElement('div');
   element.className = 'marker-element';
-  element.style.backgroundColor = makerColor;
   element.dataset.title = title; // Store title for later use
 
   // Add marker title that shows on hover
   const titleElement = document.createElement('div');
   titleElement.textContent = title;
-  titleElement.style.position = 'absolute';
-  titleElement.style.bottom = '100%';
-  titleElement.style.left = '50%';
-  titleElement.style.transform = 'translateX(-50%)';
-  titleElement.style.backgroundColor = 'white';
-  titleElement.style.padding = '4px 8px';
-  titleElement.style.borderRadius = '4px';
-  titleElement.style.fontWeight = 'bold';
-  titleElement.style.fontSize = '14px';
-  titleElement.style.whiteSpace = 'nowrap';
-  titleElement.style.boxShadow = '0 2px 4px rgba(0,0,0,0.2)';
-  titleElement.style.marginBottom = '5px';
-  titleElement.style.display = 'none';
-  titleElement.style.zIndex = '1';
-
-  // Add event listeners for hover
-  element.addEventListener('mouseover', () => {
-    titleElement.style.display = 'block';
-    element.style.backgroundColor = highlightMaker;
-  });
-
-  element.addEventListener('mouseout', () => {
-    titleElement.style.display = 'none';
-    element.style.backgroundColor = makerColor;
-  });
+  titleElement.className = 'marker-title';
 
   // Append to container
   container.appendChild(element);
   container.appendChild(titleElement);
-
   return container;
 }
 
@@ -163,15 +131,11 @@ function createMarkerElement(title) {
  */
 function createInfoWindowContent(landmark, index) {
   const infoWindowContent = document.createElement('div');
-  infoWindowContent.style.maxWidth = '200px';
+  infoWindowContent.className = 'info-window-content';
 
   const titleElement = document.createElement('h3');
-  titleElement.style.marginTop = '0';
-  titleElement.style.marginBottom = '8px';
-  titleElement.style.fontSize = '16px';
-  titleElement.style.fontWeight = 'bold';
+  titleElement.className = 'info-window-title';
   titleElement.textContent = landmark.name;
-  titleElement.style.cursor = 'pointer';
   titleElement.addEventListener('click', () => {
     highlightMarkerAndSidebar(index);
   });
@@ -242,9 +206,6 @@ function highlightMarkerAndSidebar(index) {
   }
 }
 
-const screenWidthThreshold = 500; // The screen width below which is narrow
-const isNarrowScreen = window.innerWidth < screenWidthThreshold;
-
 /**
  * Setup click handlers for marker and sidebar interaction
  */
@@ -257,6 +218,7 @@ function setupPlaceInteractions(
 ) {
   // Marker click handler
   markerView.addListener('gmp-click', () => {
+    const isNarrowScreen = window.innerWidth <= screenWidthThreshold;
     infoWindows.forEach((iw) => iw.close());
     infoWindow.open({
       anchor: markerView,
@@ -276,6 +238,7 @@ function setupPlaceInteractions(
   // Sidebar click handler
   const landmarkNameElement = landmarkElement.querySelector('.landmark-name');
   landmarkNameElement.addEventListener('click', () => {
+    const isNarrowScreen = window.innerWidth <= screenWidthThreshold;
     infoWindows.forEach((iw) => iw.close());
     if (!isNarrowScreen) {
       infoWindow.open({
@@ -286,9 +249,11 @@ function setupPlaceInteractions(
     highlightMarkerAndSidebar(index);
 
     // Pans the map accounting for the sidebar width on narrow screens.
-    map.panTo(position);
+    const sidebarWidth = infoSidebar.offsetWidth; // Capture width before pan
+    mapPanTo(position.lat, position.lng);
     if (isNarrowScreen) {
-      map.panBy((infoSidebar.offsetWidth - window.innerWidth) / 2, 0);
+      // Pan by half the sidebar width to the left
+      map.panBy(-sidebarWidth / 2, 0);
     }
   });
 }
@@ -301,6 +266,10 @@ export function clearLandMarkers() {
     marker.map = null;
   });
   landMarkers.length = 0;
+
+  // Also clear associated info windows
+  infoWindows.forEach((iw) => iw.close());
+  infoWindows.length = 0;
 }
 
 // Cache for 3D Map Overlay to prevent memory leaks
@@ -409,7 +378,7 @@ export function create3DMapOverlay(lat, lng, placeName) {
 
       // Create Map3DElement with optimized configuration to reduce performance warnings
       const map3DElement = new Map3DElement({
-        center: { lat: lat, lng: lng, altitude: 500 },
+        center: { lat: lat, lng: lng, altitude: AERIAL_VIEW_ALTITUDE },
         tilt: 67.5,
         range: 5000,
         heading: 0,
@@ -467,7 +436,7 @@ export function create3DMapOverlay(lat, lng, placeName) {
       const replayFullAnimation = () => {
         const { lat, lng } = current3DTarget;
         const flyToCamera = {
-          center: { lat: lat, lng: lng, altitude: 300 },
+          center: { lat: lat, lng: lng, altitude: AERIAL_VIEW_ALTITUDE },
           tilt: 65,
           range: 600,
           heading: 30,
@@ -638,7 +607,7 @@ async function update3DView(lat, lng) {
   map3DElement.replaceChildren();
 
   // Reset Camera
-  map3DElement.center = { lat, lng, altitude: 500 };
+  map3DElement.center = { lat, lng, altitude: AERIAL_VIEW_ALTITUDE };
   map3DElement.tilt = 67.5;
   map3DElement.heading = 0;
 
@@ -653,7 +622,7 @@ function startAutoAnimation(map3DElement, lat, lng) {
   try {
     map3DElement.flyCameraAround({
       camera: {
-        center: { lat: lat, lng: lng, altitude: 300 },
+        center: { lat: lat, lng: lng, altitude: AERIAL_VIEW_ALTITUDE },
         tilt: 65,
         range: 600,
         heading: 30,
@@ -680,7 +649,7 @@ async function add3DMarkersAndPopovers(map3DElement, lib) {
         const marker3D = new Marker3DInteractiveElement({
           altitudeMode: AltitudeMode.ABSOLUTE,
           extruded: true,
-          position: { lat: lat, lng: lng, altitude: 300 },
+          position: { lat: lat, lng: lng, altitude: AERIAL_VIEW_ALTITUDE },
         });
 
         // Create popover with landmark content

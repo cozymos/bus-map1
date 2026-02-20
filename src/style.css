@@ -32,6 +32,7 @@ body {
   top: 0;
   left: 0;
   z-index: 1;
+  touch-action: none; /* Prevent page zoom on mobile */
 }
 
 /* Sqaure icon button per Google map style */
@@ -67,6 +68,10 @@ body {
   transition: all 0.3s ease;
 }
 
+.marker-container {
+  position: relative;
+}
+
 .marker-element {
   border: 2px solid white;
   border-radius: 50%;
@@ -74,11 +79,48 @@ body {
   height: 24px;
   cursor: pointer;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  background-color: #bbb; /* Default color */
+}
+
+.marker-element:hover {
+  background-color: #888; /* Highlight color */
+}
+
+.marker-title {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-weight: bold;
+  font-size: 14px;
+  white-space: nowrap;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  margin-bottom: 5px;
+  display: none;
+  z-index: 1;
+}
+
+.marker-element:hover + .marker-title {
+  display: block;
+}
+
+.info-window-content {
+  max-width: 200px;
+}
+
+.info-window-title {
+  margin: 0 0 8px 0;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
 }
 
 .active-landmark {
   background-color: rgba(255, 87, 34, 0.1);
-  border-left: 3px solid #ff5722;
+  border-left: 3px solid #f66a5b;
   padding-left: 10px;
   transform: translateX(3px);
   transition: all 0.3s ease;
@@ -328,7 +370,7 @@ body {
   justify-content: space-between;
   align-items: center;
   padding: 0 0.5rem;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid #ddd;
 }
 
 .settings-bar-section {
@@ -397,7 +439,7 @@ body {
 
 #settings-table td {
   padding: 0.5rem;
-  border-bottom: 1px solid #eee;
+  border-bottom: none;
 }
 
 #settings-table tr:last-child td {

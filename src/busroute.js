@@ -1,8 +1,12 @@
 /* eslint-disable no-undef */
 import { hkbusData } from './busdata.js';
-import { i18n } from './lion.js';
-import { updateUrlParameters, getMapCenter } from './utils.js';
 import { mapPanTo } from './app.js';
+import { i18n } from './lion.js';
+import {
+  updateUrlParameters,
+  getMapCenter,
+  screenWidthThreshold,
+} from './utils.js';
 
 // DOM Elements
 const searchSideBar = document.getElementById('search-bar-container');
@@ -18,14 +22,26 @@ export const routeState = {
   stopMarkers: [],
   lastStopName: null,
   manualHide: false,
+  programmaticPan: false,
+  nearestStopId: null,
 };
 export const streetZoom = 15;
+export const HK_BOUNDS = {
+  N: 22.57,
+  S: 22.15,
+  E: 114.5,
+  W: 113.8,
+};
 
 let map;
 let searchCircle = null;
 let centerMarker = null;
 let nearestStopMarker = null;
-const busMarkers = new Map();
+let routeSidebarClickHandler = null;
+let debounceTimer = null; // For debouncing the idle event
+let isThrottled = false; // Flag for throttling
+const markerCache = new Map(); // Cache all created marker objects
+const visibleBusMarkers = new Set(); // Track IDs of markers currently on map
 
 export function initBusRoute(mapInstance) {
   map = mapInstance;
@@ -33,24 +49,39 @@ export function initBusRoute(mapInstance) {
   initSearchCircle();
   initRoutePopover();
 
-  let isThrottled = false;
   map.addListener('center_changed', () => {
-    if (searchCircle && searchCircle.getMap()) {
-      if (isThrottled) return;
-      isThrottled = true;
-      setTimeout(() => (isThrottled = false), 50);
-      searchBusStop();
+    if (isThrottled) return; // If throttled, do nothing
+    isThrottled = true;
+
+    // Set a timeout to reset the throttle flag
+    setTimeout(() => {
+      isThrottled = false;
+    }, 50); // Throttle to once every 50ms
+
+    const center = map.getCenter();
+    if (centerMarker) {
+      centerMarker.position = center;
+    }
+    if (searchCircle) {
+      searchCircle.setCenter(center);
     }
   });
 
+  // Use 'idle' for heavy operations like searching for bus stops
   map.addListener('idle', () => {
-    if (searchCircle && searchCircle.getMap()) {
-      searchBusStop();
+    if (routeState.programmaticPan) {
+      // Reset the flag after a programmatic pan to re-enable auto-search
+      routeState.programmaticPan = false;
+      return;
     }
-  });
 
-  window.addEventListener('popstate', () => {
-    routeState.activeId = null;
+    // Debounce the search to prevent rapid firing on small pans
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+      if (searchCircle && searchCircle.getMap()) {
+        searchBusStop();
+      }
+    }, 300); // Wait 300ms after the map stops moving
   });
 }
 
@@ -78,12 +109,6 @@ async function initCenterMarker() {
     zIndex: 1000,
   });
 
-  map.addListener('center_changed', () => {
-    if (centerMarker) {
-      centerMarker.position = map.getCenter();
-    }
-  });
-
   map.addListener('dragstart', () => {
     centerIcon.style.opacity = '0.5';
   });
@@ -107,12 +132,6 @@ async function initSearchCircle() {
     clickable: false,
   });
 
-  map.addListener('center_changed', () => {
-    if (searchCircle) {
-      searchCircle.setCenter(map.getCenter());
-    }
-  });
-
   map.addListener('zoom_changed', () => {
     if (searchCircle) {
       const zoom = map.getZoom();
@@ -128,6 +147,13 @@ async function initSearchCircle() {
 
 export async function searchBusStop() {
   if (!map) return;
+
+  // If a specific route is already active, don't search for other stops.
+  // The user is in "route inspection" mode.
+  if (routeState.activeId) {
+    return;
+  }
+
   updateUrlParameters(map);
 
   const center = getMapCenter(map);
@@ -136,10 +162,10 @@ export async function searchBusStop() {
   // 1. Check if map center is in Hong Kong
   // HK Bounds: ~ 22.15 - 22.57 N, 113.8 - 114.5 E
   if (
-    center.lat < 22.15 ||
-    center.lat > 22.57 ||
-    center.lng < 113.8 ||
-    center.lng > 114.5
+    center.lat < HK_BOUNDS.S ||
+    center.lat > HK_BOUNDS.N ||
+    center.lng < HK_BOUNDS.W ||
+    center.lng > HK_BOUNDS.E
   ) {
     console.debug('Search Bus Stop: Out of HK bounds', center);
     if (searchCircle) searchCircle.setMap(null);
@@ -172,44 +198,56 @@ export async function searchBusStop() {
 
   // 4. Plot bus stops as marker in small icons
   const { AdvancedMarkerElement } = await google.maps.importLibrary('marker');
+  const newVisibleStopIds = new Set(stops.map((s) => s.id));
 
-  const visibleStopIds = new Set(stops.map((s) => s.id));
-  for (const [id, marker] of busMarkers) {
-    if (!visibleStopIds.has(id)) {
-      marker.map = null;
-      busMarkers.delete(id);
+  // Hide markers that are no longer visible
+  for (const stopId of visibleBusMarkers) {
+    if (!newVisibleStopIds.has(stopId)) {
+      const marker = markerCache.get(stopId);
+      if (marker) {
+        marker.map = null;
+      }
+      visibleBusMarkers.delete(stopId);
     }
   }
 
+  // Show new or existing markers
   for (const stop of stops) {
-    if (busMarkers.has(stop.id)) continue;
+    if (visibleBusMarkers.has(stop.id)) continue; // Already visible
 
-    const lat = stop.location?.lat || stop.lat || stop.latitude;
-    const lng = stop.location?.lng || stop.long || stop.lng || stop.longitude;
+    let marker = markerCache.get(stop.id);
+    if (!marker) {
+      // Marker not in cache, create it
+      const lat = stop.location?.lat || stop.lat || stop.latitude;
+      const lng = stop.location?.lng || stop.long || stop.lng || stop.longitude;
+      if (lat && lng) {
+        const icon = document.createElement('div');
+        icon.className = 'bus-marker-stop';
 
-    if (lat && lng) {
-      const icon = document.createElement('div');
-      icon.className = 'bus-marker-stop';
+        let stopName = stop.name;
+        if (typeof stopName === 'object' && stopName !== null) {
+          const userLang = i18n.userLocale.split('-')[0].toLowerCase();
+          stopName =
+            stopName.zh ||
+            stopName.tc ||
+            stopName[userLang] ||
+            stopName.en ||
+            Object.values(stopName).join(' ');
+        }
 
-      let stopName = stop.name;
-      if (typeof stopName === 'object' && stopName !== null) {
-        const userLang = i18n.userLocale.split('-')[0].toLowerCase();
-        stopName =
-          stopName.zh ||
-          stopName.tc ||
-          stopName[userLang] ||
-          stopName.en ||
-          Object.values(stopName).join(' ');
+        marker = new AdvancedMarkerElement({
+          map: null, // Initially hidden
+          position: { lat, lng },
+          content: icon,
+          title: stopName || `Bus Stop ${stop.stopId || ''}`,
+        });
+        markerCache.set(stop.id, marker);
       }
+    }
 
-      const marker = new AdvancedMarkerElement({
-        map,
-        position: { lat, lng },
-        content: icon,
-        title: stopName || `Bus Stop ${stop.stopId || ''}`,
-      });
-
-      busMarkers.set(stop.id, marker);
+    if (marker) {
+      marker.map = map; // Show it
+      visibleBusMarkers.add(stop.id);
     }
   }
 
@@ -217,11 +255,15 @@ export async function searchBusStop() {
   let nearest_m = 10;
   if (zoom <= 16) {
     nearest_m = 40;
-  } else if (zoom <= 18) {
+  } else if (zoom <= 20) {
     nearest_m = 20;
   }
   const nearest = hkbusData.findNearestStop(center.lat, center.lng, nearest_m);
   if (nearest) {
+    // Optimization: Only redraw polylines if the nearest stop has changed
+    const hasNearestStopChanged = nearest.id !== routeState.nearestStopId;
+    routeState.nearestStopId = nearest.id; // Update the state regardless
+
     // Remove previous sticky marker
     clearNearestStopMarker();
 
@@ -237,12 +279,10 @@ export async function searchBusStop() {
     });
 
     const routes = hkbusData.getRoutesByStop(nearest.id);
-
     const isRouteActive =
       routeState.activeId && routes.some((r) => r.id === routeState.activeId);
 
-    if (!isRouteActive) {
-      routeState.activeId = null;
+    if (!isRouteActive && hasNearestStopChanged) {
       clearRouteStopMarkers();
       console.debug(
         `Drawing ${routes.length} routes for nearest stop ${nearest.id}`
@@ -251,9 +291,10 @@ export async function searchBusStop() {
         await drawRoute(routes[i].id, i === 0);
       }
     }
-    updateRoutePopover(routes);
+    updateRoutePopover(routes, nearest.id);
   } else {
     clearNearestStopMarker();
+    routeState.nearestStopId = null; // Reset when no stop is near
     clearRouteState();
   }
 }
@@ -282,7 +323,6 @@ function clearNearestStopMarker() {
 
 export async function drawRoute(routeId, clear = true) {
   if (!map) return;
-
   if (clear) {
     // Clear existing polylines
     clearPolylines();
@@ -292,7 +332,6 @@ export async function drawRoute(routeId, clear = true) {
   if (!routeStops) return;
 
   const { Polyline } = await google.maps.importLibrary('maps');
-
   for (const company in routeStops) {
     const stops = routeStops[company];
     const path = stops
@@ -335,83 +374,63 @@ export function clearRouteState() {
   if (infoSidebar) infoSidebar.classList.add('hidden');
   routeState.activeId = null;
   routeState.manualHide = false;
+  routeState.nearestStopId = null;
   clearRouteStopMarkers();
   clearPolylines();
+
+  // Clear caches to ensure a clean state on map reload
+  markerCache.clear();
+  visibleBusMarkers.clear();
 }
 
 async function drawRouteStops(routeId, pushState = true) {
   // Draw the selected route polyline (clearing others)
   await drawRoute(routeId, true);
-
   clearRouteStopMarkers();
 
   // Update sidebar first to ensure dimensions are available for padding calculation
   updateRouteSidebar(routeId);
-
   const routeStops = hkbusData.getStopsByRoute(routeId);
   if (!routeStops) return;
 
   const { AdvancedMarkerElement } = await google.maps.importLibrary('marker');
   const { LatLngBounds } = await google.maps.importLibrary('core');
-
   const bounds = new LatLngBounds();
-  const currentCenter = map.getCenter();
-  const centerLat = currentCenter.lat();
-  const centerLng = currentCenter.lng();
-  bounds.extend(currentCenter);
-
   for (const company in routeStops) {
     const stops = routeStops[company];
     for (const stop of stops) {
       if (!stop.location) continue;
 
       bounds.extend(stop.location);
-      // Reflection to keep center
-      const dLat = stop.location.lat - centerLat;
-      const dLng = stop.location.lng - centerLng;
-      bounds.extend({
-        lat: centerLat - dLat,
-        lng: centerLng - dLng,
-      });
-
       const dot = document.createElement('div');
       dot.className = 'bus-marker-route-stop';
-
       const marker = new AdvancedMarkerElement({
         map,
         position: stop.location,
         content: dot,
-        title: stop.name?.en || stop.name?.zh || '',
+        title: stop.name?.zh || stop.name?.en || '',
         zIndex: 120,
       });
       routeState.stopMarkers.push(marker);
     }
   }
 
-  // Calculate padding to avoid overlap with popover and sidebar
-  let paddingY = 50;
-  let paddingX = 50;
-
-  if (window.innerWidth >= 768) {
-    if (routeState.popover && routeState.popover.offsetHeight > 0) {
-      paddingY = 50 + routeState.popover.offsetHeight;
-    }
-
-    if (
-      infoSidebar &&
-      infoSidebar.offsetWidth > 0 &&
-      !infoSidebar.classList.contains('hidden')
-    ) {
-      paddingX = 50 + infoSidebar.offsetWidth;
-    }
+  // Define padding to avoid UI elements overlapping the map view.
+  const padding = { top: 50, bottom: 50, left: 50, right: 50 };
+  const isWideScreen = window.innerWidth >= screenWidthThreshold;
+  if (isWideScreen && routeState.popover) {
+    padding.top += routeState.popover.offsetHeight;
   }
 
-  map.fitBounds(bounds, {
-    top: paddingY,
-    bottom: paddingY,
-    left: paddingX,
-    right: paddingX,
-  });
+  if (
+    isWideScreen &&
+    infoSidebar &&
+    !infoSidebar.classList.contains('hidden')
+  ) {
+    padding.left += infoSidebar.offsetWidth;
+  }
+
+  map.fitBounds(bounds, padding);
   updateUrlParameters(map, pushState);
 }
 
@@ -421,9 +440,8 @@ function initRoutePopover() {
   document.body.appendChild(routeState.popover);
 }
 
-function updateRoutePopover(routes) {
+function updateRoutePopover(routes, nearestStopId) {
   if (!routeState.popover) return;
-
   routeState.popover.innerHTML = '';
   if (!routes || routes.length === 0) {
     routeState.popover.style.display = 'none';
@@ -431,7 +449,6 @@ function updateRoutePopover(routes) {
   }
 
   if (searchInput) searchInput.style.display = 'none';
-
   const searchRect = searchSideBar.getBoundingClientRect();
   if (searchSideBar.classList.contains('hidden') || searchRect.width === 0) {
     routeState.popover.style.display = 'none';
@@ -467,13 +484,21 @@ function updateRoutePopover(routes) {
         for (let i = 0; i < routes.length; i++) {
           await drawRoute(routes[i].id, i === 0);
         }
+        if (infoSidebar) infoSidebar.classList.add('hidden');
+        routeState.programmaticPan = true; // Prevent auto-search on zoom
+        map.setZoom(streetZoom);
       } else {
         // Turn ON
         const isFirst = routeState.activeId === null;
+        if (isFirst && nearestStopId) {
+          // This is the fix. Set the nearestStopId from the context
+          // of when the popover was created, BEFORE drawing the sidebar.
+          routeState.nearestStopId = nearestStopId;
+        }
         routeState.activeId = route.id;
         await drawRouteStops(route.id, isFirst);
       }
-      updateRoutePopover(routes);
+      updateRoutePopover(routes, nearestStopId);
     });
 
     routeState.popover.appendChild(pill);
@@ -487,9 +512,6 @@ function updateRouteSidebar(routeId) {
   const routeStops = hkbusData.getStopsByRoute(routeId);
   if (!route || !routeStops) return;
 
-  // Hide sidebar during content update to prevent flickering
-  if (infoSidebar) infoSidebar.classList.add('hidden');
-
   // Use the first company's stop list (assuming shared stops for joint routes)
   const companies = Object.keys(routeStops);
   if (companies.length === 0) return;
@@ -500,9 +522,9 @@ function updateRouteSidebar(routeId) {
     if (typeof nameObj !== 'object' || nameObj === null) return nameObj;
     return (
       nameObj.zh ||
+      nameObj.tc ||
       nameObj[userLang] ||
       nameObj.en ||
-      nameObj.tc ||
       Object.values(nameObj).join(' ')
     );
   };
@@ -527,8 +549,9 @@ function updateRouteSidebar(routeId) {
   let contentHtml = '';
   stops.forEach((stop, index) => {
     const stopName = getLocName(stop.name);
+    const isNearest = stop.id === routeState.nearestStopId;
     contentHtml += `
-      <div class="route-stop-item" data-index="${index}">
+      <div class="route-stop-item ${isNearest ? 'active-landmark' : ''}" data-index="${index}">
         <div class="route-stop-name">
           <span class="stop-item-index">${index + 1}.</span>
           ${stopName}
@@ -543,16 +566,32 @@ function updateRouteSidebar(routeId) {
     infoSidebar.classList.remove('hidden');
   }
 
-  // Add click listeners to stops
-  const stopItems = infoSidebar.querySelectorAll('.route-stop-item');
-  stopItems.forEach((item) => {
-    item.addEventListener('click', () => {
-      const index = parseInt(item.getAttribute('data-index'));
-      const stop = stops[index];
-      if (stop && stop.location) {
-        routeState.lastStopName = getLocName(stop.name);
-        mapPanTo(stop.location.lat, stop.location.lng, streetZoom);
-      }
-    });
-  });
+  // Remove old listener to prevent memory leaks
+  if (routeSidebarClickHandler) {
+    infoContent.removeEventListener('click', routeSidebarClickHandler);
+  }
+
+  // Add a single click listener to the parent container (event delegation)
+  routeSidebarClickHandler = (event) => {
+    const item = event.target.closest('.route-stop-item');
+    if (!item) return; // Click was not on a stop item
+
+    const index = parseInt(item.getAttribute('data-index'));
+    const stop = stops[index]; // `stops` is from the closure
+    if (stop && stop.location) {
+      routeState.lastStopName = getLocName(stop.name);
+      routeState.nearestStopId = stop.id;
+
+      // Manually update highlighting
+      const currentActive = infoSidebar.querySelector(
+        '.route-stop-item.active-landmark'
+      );
+      if (currentActive) currentActive.classList.remove('active-landmark');
+      item.classList.add('active-landmark');
+
+      // Pan map to the selected stop
+      mapPanTo(stop.location.lat, stop.location.lng, streetZoom);
+    }
+  };
+  infoContent.addEventListener('click', routeSidebarClickHandler);
 }

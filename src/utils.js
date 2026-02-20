@@ -1,4 +1,6 @@
 export const SETTINGS_KEY = 'APP_SETTINGS';
+export const screenWidthThreshold = 768; // The screen width below which is narrow
+export const EARTH_RADIUS_KM = 6371; // Earth's mean radius
 
 export function getSettings() {
   try {
@@ -221,7 +223,6 @@ export function updateUrlParameters(map, pushState = false) {
  * @returns {number} - Distance in kilometers
  */
 export function distance_km(lat1, lng1, lat2, lng2) {
-  const R = 6371; // Earth's radius in kilometers
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLng = ((lng2 - lng1) * Math.PI) / 180;
   const a =
@@ -231,7 +232,7 @@ export function distance_km(lat1, lng1, lat2, lng2) {
       Math.sin(dLng / 2) *
       Math.sin(dLng / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
+  return EARTH_RADIUS_KM * c;
 }
 
 /**
