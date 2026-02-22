@@ -2,8 +2,8 @@
   "defaults": {
     "locale": "zh-HK",
     "default_location": {
-      "lat": 22.308,
-      "lon": 114.172,
+      "lat": 22.3082,
+      "lon": 114.1718,
       "name": "Kowloon",
       "country": "Hong Kong",
       "country_code": "HK"

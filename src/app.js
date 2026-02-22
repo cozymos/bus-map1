@@ -57,7 +57,7 @@ let trafficLayer = null;
 let transitLayer = null;
 
 // Default coordinates (Hong Kong)
-let defaultLocation = { lat: 22.308, lng: 114.172 };
+let defaultLocation = { lat: 22.3082, lng: 114.1718 };
 export let defaultZoom = streetZoom;
 
 // Map instance
