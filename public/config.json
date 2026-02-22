@@ -1,14 +1,15 @@
 {
   "defaults": {
+    "locale": "zh-HK",
     "default_location": {
-      "lat": 37.7749,
-      "lon": -122.4194,
-      "name": "San Francisco",
-      "country": "United States",
-      "country_code": "US"
+      "lat": 22.308,
+      "lon": 114.172,
+      "name": "Kowloon",
+      "country": "Hong Kong",
+      "country_code": "HK"
     },
     "search_radius": 15,
-    "zoom_level": 12,
+    "zoom_level": 15,
     "tileLayer": "googleMaps",
     "openai_model": "gpt-4.1-nano",
     "openai_temperature": 0.1
@@ -16,24 +17,19 @@
   "test_mode": {
     "test_landmarks": [
       {
-        "name": "Golden Gate Bridge",
-        "loc": "San Francisco, California, United States",
-        "desc": "The Golden Gate Bridge is a suspension bridge spanning the Golden Gate, the one-mile-wide strait connecting San Francisco Bay and the Pacific Ocean. It has become an internationally recognized symbol of San Francisco and California.",
-        "lat": 37.8199,
-        "lon": -122.4783
+        "name": "Victoria Harbour",
+        "loc": "Kowloon, Hong Kong",
+        "desc": "Victoria Harbour is the natural harbour separating Hong Kong Island from the Kowloon Peninsula",
+        "lat": 22.2968,
+        "lon": 114.1694,
+        "type": "Tourist attraction"
       },
       {
-        "name": "Alcatraz Island",
-        "desc": "Alcatraz Island is located in San Francisco Bay, 1.25 miles offshore from San Francisco. The small island was developed with facilities for a lighthouse, a military fortification, and a federal prison from 1934 until 1963.",
-        "lat": 37.827,
-        "lon": -122.423,
-        "loc": "San Francisco Bayarea"
-      },
-      {
-        "name": "Fisherman's Wharf",
-        "desc": "Fisherman's Wharf is a popular tourist attraction in San Francisco that encompasses the northern waterfront area. It's known for its shops, restaurants, and scenic views of the bay, as well as sea lion sightings at Pier 39.",
-        "lat": 37.808,
-        "lon": -122.4177,
+        "name": "星光大道",
+        "desc": "星光大道位於尖沙咀海濱長廊，展示香港電影界的明星手印和雕塑，是欣賞維多利亞港夜景的熱門地點。",
+        "loc": "九龍, 香港",
+        "lat": 22.293,
+        "lon": 114.1741,
         "type": "test_mode"
       }
     ]

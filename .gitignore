@@ -16,4 +16,4 @@ dev-dist/
 .env
 .env.local
 __*/
-z*
+zset*

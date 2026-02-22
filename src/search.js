@@ -8,12 +8,12 @@ import { getLandmarksWithGPT } from './openai.js';
 import { getLandmarksWithGemini } from './gemini.js';
 import {
   getConfig,
-  validateCoords,
   normalizeCoordValue,
   setLoading,
   handleError,
   updateUrlParameters,
   getMapCenter,
+  isWithinHKBounds,
   isTestMode,
 } from './utils.js';
 import { mapPanTo, defaultZoom } from './app.js';
@@ -40,17 +40,9 @@ export function initSearch() {
 }
 
 /**
- * Resets module-level state variables for search.
- */
-export function resetSearchState() {
-  lastQuery = null;
-}
-
-/**
  * Perform a text search for location (not landmarks)
  * @param {string} query - The search query entered by the user
  */
-let lastQuery = null;
 export async function searchText(query) {
   try {
     if (!query || query.trim() === '') {
@@ -62,24 +54,25 @@ export async function searchText(query) {
     clearLandMarkers();
     setLoading(true);
 
-    // Check if the query is the same as the last one
-    if (query != lastQuery) {
-      // New Queries Pass 1: Geocoding API to lookup location
-      lastQuery = query;
-      const coords = await getLocationCoord(query);
-      if (coords && validateCoords(coords.lat, coords.lon)) {
-        console.debug(`location of "${query}": ${coords.lat}, ${coords.lon}`);
-        mapPanTo(coords.lat, coords.lon, defaultZoom);
-        updateUrlParameters(map, true);
-        return;
-      }
+    // Pass 1: Geocoding API to lookup location
+    const coords = await getLocationCoord(query);
+    if (coords && isWithinHKBounds(coords)) {
+      console.debug(`location of "${query}": ${coords.lat}, ${coords.lon}`);
+      mapPanTo(coords.lat, coords.lon, defaultZoom);
+      updateUrlParameters(map, true);
+      return;
     }
 
     // Pass 2: call Google Text Search API
     let locData = await PlaceTextSearch(query, i18n.userLocale);
     if (locData?.landmarks?.length > 0) {
-      mapPanTo(locData.landmarks[0].lat, locData.landmarks[0].lon, defaultZoom);
-      lastQuery = null;
+      const landmark = locData.landmarks[0];
+      if (isWithinHKBounds(landmark)) {
+        mapPanTo(landmark.lat, landmark.lon, defaultZoom);
+        updateUrlParameters(map, true);
+      } else {
+        handleError(i18n.t('errors.location_not_found'));
+      }
     } else {
       handleError(i18n.t('errors.location_not_found'));
     }

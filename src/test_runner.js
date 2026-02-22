@@ -67,21 +67,21 @@ async function loadConfig() {
       config = {
         defaults: {
           default_location: {
-            name: 'San Francisco',
-            country: 'United States',
-            country_code: 'US',
-            lat: 37.7749,
-            lon: -122.4194,
+            name: 'Kowloon',
+            country: 'Hong Kong',
+            country_code: 'HK',
+            lat: 22.308,
+            lon: 114.172,
           },
           search_radius: 15,
         },
         test_mode: {
           test_landmarks: [
             {
-              name: 'Golden Gate Bridge',
-              lat: 37.8199,
-              lon: -122.4783,
-              loc: 'San Francisco',
+              name: 'Victoria Harbour',
+              lat: 22.2968,
+              lon: 114.1694,
+              loc: 'Kowloon, Hong Kong',
             },
           ],
         },
@@ -121,7 +121,7 @@ async function testFindStopsNear() {
     A: new Set(['kmb']),
     B: new Set(['ctb']),
     C: new Set(['kmb']),
-    D: new Set(['ctb', 'nlb']),
+    D: new Set(['ctb', 'gmb']),
     E: new Set(['ctb', 'kmb']),
   };
 
@@ -168,11 +168,11 @@ async function testFindStopsNear() {
     ]);
     check("Operator filter for 'kmb'", result4, ['E', 'A', 'C']);
 
-    // Test Case 5: Joint operator filter. Should find stops operated by 'nlb'.
+    // Test Case 5: Joint operator filter. Should find stops operated by 'gmb'.
     let result5 = hkbusData.findStopsNear(centerLat, centerLng, 300, 10, 1, [
-      'nlb',
+      'gmb',
     ]);
-    check("Operator filter for 'nlb' (joint route)", result5, ['D']);
+    check("Operator filter for 'gmb' (joint route)", result5, ['D']);
 
     // Test Case 6: Skipped as requested. The auto-expansion logic is designed
     // to avoid returning no results, making this test case invalid.

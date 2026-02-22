@@ -4,7 +4,6 @@ import {
   searchAirport,
   showUserLocation,
   searchText,
-  resetSearchState,
 } from './search.js';
 import {
   initBusRoute,
@@ -68,7 +67,7 @@ let initialPosition;
 const mapId1 =
   import.meta.env?.VITE_GOOGLE_MAP_ID1 || 'f61a40c10abb6e5a9caa3239';
 const mapId2 =
-  import.meta.env?.VITE_GOOGLE_MAP_ID2 || 'f61a40c10abb6e5a61bdfb74';
+  import.meta.env?.VITE_GOOGLE_MAP_ID2 || 'f61a40c10abb6e5aa3604fb2';
 let myMapId = mapId1;
 
 /**
@@ -199,12 +198,12 @@ async function loadMap() {
   initSearch();
   initLandmark();
   initBusRoute(map);
-  
+
   map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(busStopsButton);
-  map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(moreWrapper);
   map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(
     searchLandmarksButton
   );
+  map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(moreWrapper);
   map.controls[google.maps.ControlPosition.LEFT_BOTTOM].push(settingsButton);
   if (i18n.lang.secondLocale) {
     map.controls[google.maps.ControlPosition.LEFT_BOTTOM].push(localeButton);
@@ -253,14 +252,17 @@ function resetUIState() {
   if (searchInput) {
     searchInput.value = '';
   }
-
-  // Reset search-specific state
-  resetSearchState();
 }
 
 // when clicking elsewhere on the document
 document.addEventListener('click', () => {
-  if (moreMenu) moreMenu.classList.remove('show');
+  if (moreMenu) {
+    moreMenu.classList.remove('show');
+  }
+  const routeDropdown = document.querySelector('.route-pill-dropdown.show');
+  if (routeDropdown) {
+    routeDropdown.classList.remove('show');
+  }
 });
 
 export function mapPanTo(lat, lng, zoom = null) {
@@ -294,8 +296,8 @@ function loadGoogleMapsAPI() {
     `${import.meta.env?.MODE || 'server'} mode: Google Maps loading...`
   );
   const script = document.createElement('script');
-  // Use a protocol-relative URL and ensure async/defer
-  script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&callback=initMap&loading=async&libraries=places,geometry,marker,maps3d&v=beta`;
+  /// 2mvp: Preset map language to Chinese (Hong Kong) and region to HK
+  script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&callback=initMap&loading=async&libraries=places,geometry,marker,maps3d&v=beta&language=zh-HK&region=HK`;
   script.async = true;
   script.defer = true;
   script.onerror = () => handleError('Could not load Google Maps');
@@ -461,7 +463,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Skip auto-translation if no resource bundles are loaded
   if (Object.keys(i18n.translations).length > 0) {
     // async transation update while loading map
-    await updateTranslation();
+    await updateTranslation(true);
     await applyTranslations();
   }
 });

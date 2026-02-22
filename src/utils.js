@@ -1,6 +1,12 @@
 export const SETTINGS_KEY = 'APP_SETTINGS';
 export const screenWidthThreshold = 768; // The screen width below which is narrow
 export const EARTH_RADIUS_KM = 6371; // Earth's mean radius
+export const HK_BOUNDS = {
+  N: 22.57,
+  S: 22.15,
+  E: 114.5,
+  W: 113.8,
+};
 
 export function getSettings() {
   try {
@@ -140,6 +146,28 @@ export function validateCoords(lat, lon) {
     normalizedLat <= 90 &&
     normalizedLon >= -180 &&
     normalizedLon <= 180
+  );
+}
+
+/**
+ * Checks if coordinates are within the predefined Hong Kong bounds.
+ * @param {object} coords - An object with lat and (lng or lon) properties.
+ * @returns {boolean} - True if coordinates are within bounds.
+ */
+export function isWithinHKBounds(coords) {
+  if (!coords) return false;
+  const lat = coords.lat;
+  const lng = coords.lng ?? coords.lon; // Handle both lng and lon
+
+  if (typeof lat !== 'number' || typeof lng !== 'number') {
+    return false;
+  }
+
+  return (
+    lat >= HK_BOUNDS.S &&
+    lat <= HK_BOUNDS.N &&
+    lng >= HK_BOUNDS.W &&
+    lng <= HK_BOUNDS.E
   );
 }
 

@@ -1,0 +1,53 @@
+{
+  "app": {
+    "loading_text": "載入中…",
+    "search_placeholder": "搜尋位置…",
+    "user_location": "尋找我的位置",
+    "toggle_details": "切換詳情",
+    "toggle_traffic": "切換交通",
+    "toggle_transit": "切換公共交通",
+    "show_street_view": "顯示街景",
+    "show_3d_aerial": "顯示3D空照圖"
+  },
+  "Settings": {
+    "GOOGLE_MAPS_API_KEY": "Google 地圖 API 金鑰",
+    "OPENAI_API_KEY": "OpenAI API 金鑰"
+  },
+  "SettingDialog": {
+    "settings_title": "設定",
+    "new_setting_prompt": "輸入新設定的名稱：",
+    "duplicate_key_alert": "此設定鍵已存在。",
+    "delete_confirm": "你確定要刪除 \"{key}\" 設定嗎？"
+  },
+  "landmark": {
+    "overlay": {
+      "load_failed_title": "3D 地圖載入失敗",
+      "load_failed_description": "Google 3D 地圖視圖無法初始化。",
+      "load_failed_details": "可能由於瀏覽器相容性、網絡問題或 API 存取限制。",
+      "close_button": "關閉 3D 視圖"
+    }
+  },
+  "tooltips": {
+    "lookup_bus_stops": "巴士站",
+    "search_location": "搜尋位置",
+    "search_landmarks": "搜尋地標",
+    "settings": "設定對話框",
+    "my_locale": "切換語言",
+    "close_sidebar": "關閉側邊欄",
+    "add_setting": "新增設定",
+    "close_settings": "關閉對話框",
+    "user_location_marker": "你的位置",
+    "hide_labels": "隱藏標籤",
+    "show_labels": "顯示標籤",
+    "replay_animation": "重播動畫",
+    "delete_setting": "刪除設定",
+    "more_options": "更多選項"
+  },
+  "errors": {
+    "map_init_failed": "地圖初始化失敗",
+    "location_not_found": "找不到位置",
+    "no_results": "沒有搜尋結果",
+    "geolocation_not_supported": "不支援地理位置",
+    "unable_to_get_geolocation": "無法取得地理位置"
+  }
+}

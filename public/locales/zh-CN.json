@@ -1,0 +1,53 @@
+{
+  "app": {
+    "loading_text": "加载中…",
+    "search_placeholder": "搜索位置…",
+    "user_location": "查找我的位置",
+    "toggle_details": "切换详情",
+    "toggle_traffic": "切换交通",
+    "toggle_transit": "切换公交",
+    "show_street_view": "显示街景",
+    "show_3d_aerial": "显示3D鸟瞰"
+  },
+  "Settings": {
+    "GOOGLE_MAPS_API_KEY": "Google 地图 API 密钥",
+    "OPENAI_API_KEY": "OpenAI API 密钥"
+  },
+  "SettingDialog": {
+    "settings_title": "设置",
+    "new_setting_prompt": "输入新设置的名称：",
+    "duplicate_key_alert": "该设置键已存在。",
+    "delete_confirm": "您确定要删除“{key}”设置吗？"
+  },
+  "landmark": {
+    "overlay": {
+      "load_failed_title": "3D 地图加载失败",
+      "load_failed_description": "无法初始化 Google 3D 地图视图。",
+      "load_failed_details": "可能原因包括浏览器兼容性问题、网络问题或 API 访问限制。",
+      "close_button": "关闭3D视图"
+    }
+  },
+  "tooltips": {
+    "lookup_bus_stops": "公交站点",
+    "search_location": "搜索位置",
+    "search_landmarks": "搜索地标",
+    "settings": "设置对话框",
+    "my_locale": "切换语言",
+    "close_sidebar": "关闭侧边栏",
+    "add_setting": "添加新设置",
+    "close_settings": "关闭对话框",
+    "user_location_marker": "您的位置",
+    "hide_labels": "隐藏标签",
+    "show_labels": "显示标签",
+    "replay_animation": "重放动画",
+    "delete_setting": "删除设置",
+    "more_options": "更多选项"
+  },
+  "errors": {
+    "map_init_failed": "地图初始化失败",
+    "location_not_found": "未找到位置",
+    "no_results": "无搜索结果",
+    "geolocation_not_supported": "不支持地理定位",
+    "unable_to_get_geolocation": "无法获取地理位置"
+  }
+}

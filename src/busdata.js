@@ -37,7 +37,7 @@ async function setBusCache(data) {
   }
 }
 
-const onlyBuses = ['kmb', 'ctb'];
+const onlyBuses = ['kmb', 'ctb', 'gmb'];
 
 class HKBusData {
   constructor() {
@@ -222,7 +222,7 @@ class HKBusData {
    * Find the nearest stop to a given location, returning just the single closest stop.
    */
   findNearestStop(lat, lng, radiusMeters = Infinity, operators = onlyBuses) {
-    /// 2fix: some stops are at same location or very close. either merge them or reuse findStopsNear later
+    /// 2fix: some stops are at same location or very close, should we merge them to return just one?
     if (!this.data || !this.stopsArray.length) return null;
 
     let nearest = null;

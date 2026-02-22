@@ -27,15 +27,6 @@ Example format:
 {
   "landmarks": [
     {
-      "name": "Golden Gate Bridge",
-      "local": "Golden Gate Bridge",
-      "desc": "An iconic symbol of San Francisco, the Golden Gate Bridge is a stunning suspension bridge",
-      "loc": "San Francisco, California, United States",
-      "lat": 37.775,
-      "lon": -122.419,
-      "type": "Tourist attraction",
-    },
-    {
       "name": "Victoria Harbour",
       "local": "維多利亞港",
       "desc": "Victoria Harbour is the natural harbour separating Hong Kong Island from the Kowloon Peninsula",
