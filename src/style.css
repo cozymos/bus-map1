@@ -59,7 +59,7 @@ body {
 
 /* Active Marker and Landmark Styles */
 .active-marker {
-  background-color: #4285F4 !important;
+  background-color: #ff5722 !important;
   border: 2px solid #ffc107 !important;
   box-shadow:
     0 0 0 2px rgba(255, 193, 7, 0.5),
@@ -80,12 +80,12 @@ body {
   height: 24px;
   cursor: pointer;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-  background-color: #bbb;
+  background-color: #6aa8f7;
   /* Default color */
 }
 
 .marker-element:hover {
-  background-color: #888;
+  background-color: #4285F4;
   /* Highlight color */
 }
 
@@ -236,7 +236,7 @@ body {
   background-color: rgba(255, 255, 255, 0.8);
   border-radius: 4px;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-  max-height: calc(90% - 140px);
+  max-height: calc(90% - 100px);
   z-index: 10;
   display: flex;
   flex-direction: column;
@@ -552,11 +552,70 @@ body {
   display: none;
   /* Toggled by JS */
   flex-direction: row;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 8px;
   z-index: 2000;
-  align-items: flex-start;
-  pointer-events: none;
+  align-items: center;
+  pointer-events: auto;
+  /* Allow interaction with scrollbar */
+  overflow-x: auto;
+  padding: 12px;
+  /* Safe zone to prevent accidental map touches */
+
+  /* Hide scrollbar but keep functionality */
+  scrollbar-width: none;
+  /* Firefox */
+  -ms-overflow-style: none;
+  /* IE/Edge */
+
+  /* Masking for fade effect - default to none, controlled by JS classes */
+  -webkit-mask-image: none;
+  mask-image: none;
+  cursor: grab;
+}
+
+@media screen and (max-width: 768px) {
+  #route-popover {
+    padding: 24px;
+    /* Larger safe zone on mobile */
+  }
+}
+
+#route-popover::-webkit-scrollbar {
+  display: none;
+  /* Chrome, Safari, Opera */
+}
+
+/* Fade effects for scrollable content */
+#route-popover.fade-left {
+  -webkit-mask-image: linear-gradient(to right, transparent, black 20px);
+  mask-image: linear-gradient(to right, transparent, black 20px);
+}
+
+#route-popover.fade-right {
+  -webkit-mask-image: linear-gradient(to right,
+      black calc(100% - 20px),
+      transparent);
+  mask-image: linear-gradient(to right,
+      black calc(100% - 20px),
+      transparent);
+}
+
+#route-popover.fade-left.fade-right {
+  -webkit-mask-image: linear-gradient(to right,
+      transparent,
+      black 20px,
+      black calc(100% - 20px),
+      transparent);
+  mask-image: linear-gradient(to right,
+      transparent,
+      black 20px,
+      black calc(100% - 20px),
+      transparent);
+}
+
+#route-popover.active {
+  cursor: grabbing;
 }
 
 .route-pill {
@@ -571,9 +630,13 @@ body {
   border: 1px solid rgba(0, 0, 0, 0.1);
   pointer-events: auto;
   cursor: pointer;
-  --pill-transparency: 0.55; /* Control the transparency of all pills here */
+  flex-shrink: 0;
+  /* Prevent pills from shrinking */
+  --pill-transparency: 0.55;
+  /* Control the transparency of all pills here */
   background-color: rgba(255, 255, 255, var(--pill-transparency));
-  backdrop-filter: blur(2px); /* Frosted glass effect */
+  backdrop-filter: blur(2px);
+  /* Frosted glass effect */
 }
 
 .route-pill.kmb {
@@ -593,37 +656,6 @@ body {
   /* Keep active pill opaque for emphasis */
   background-color: #ffc107;
   color: white;
-}
-
-/* "More" button for route pills */
-.route-pill-more-container {
-  position: relative; /* Anchor for the dropdown */
-}
-
-.route-pill-more-button {
-  background-color: rgba(220, 220, 220, var(--pill-transparency));
-}
-
-.route-pill-dropdown {
-  display: none;
-  position: absolute;
-  top: 100%;
-  left: 50%;
-  transform: translateX(-50%); /* Center the dropdown */
-  margin-top: 8px;
-  background-color: white;
-  border-radius: 8px;
-  padding: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  z-index: 1; /* Relative to its container */
-  flex-direction: column;
-  gap: 8px;
-  max-height: 250px;
-  overflow-y: auto;
-}
-
-.route-pill-dropdown.show {
-  display: flex;
 }
 
 /* Route Sidebar */

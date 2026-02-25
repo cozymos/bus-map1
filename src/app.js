@@ -39,8 +39,8 @@ const translationMap = {
 };
 
 // DOM Elements
-const busStopsButton = document.getElementById('bus-stops');
-const searchLandmarksButton = document.getElementById('search-landmarks');
+const pinActionButton = document.getElementById('pin-button');
+const busStopsButton = document.getElementById('bus-button');
 const settingsButton = document.getElementById('settings-button');
 const localeButton = document.getElementById('locale-button');
 const searchSideBar = document.getElementById('search-bar-container');
@@ -55,6 +55,10 @@ const moreMenu = document.getElementById('more-menu');
 // Layer state that needs to persist across map reloads
 let trafficLayer = null;
 let transitLayer = null;
+
+// State for the active pin action
+let activePinKey = null;
+let activePinHandler = null;
 
 // Default coordinates (Hong Kong)
 let defaultLocation = { lat: 22.3082, lng: 114.1718 };
@@ -116,7 +120,7 @@ async function initMap() {
         panorama.setVisible(false);
       }
       // Reset route display on back/forward navigation
-      clearRouteState();
+      resetUIState();
       const urlParams = parseMapParamsFromURL();
       if (urlParams) {
         mapPanTo(urlParams.center.lat, urlParams.center.lng, urlParams.zoom);
@@ -199,26 +203,37 @@ async function loadMap() {
   initLandmark();
   initBusRoute(map);
 
-  map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(busStopsButton);
-  map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(
-    searchLandmarksButton
-  );
+  map.controls[google.maps.ControlPosition.LEFT_BOTTOM].push(busStopsButton);
+  map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(settingsButton);
+  map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(pinActionButton);
   map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(moreWrapper);
-  map.controls[google.maps.ControlPosition.LEFT_BOTTOM].push(settingsButton);
-  if (i18n.lang.secondLocale) {
-    map.controls[google.maps.ControlPosition.LEFT_BOTTOM].push(localeButton);
-  }
 
   const panorama = map.getStreetView();
   panorama.addListener('visible_changed', () => {
     if (panorama.getVisible()) {
       searchSideBar.classList.add('hidden');
       infoSidebar.classList.add('hidden');
-      clearRouteState();
+      resetUIState();
     } else {
       searchSideBar.classList.remove('hidden');
     }
   });
+}
+
+function updatePinIndicator() {
+  document.querySelectorAll('.dropdown-item').forEach((el) => {
+    if (el.textContent.startsWith('📍 ')) {
+      el.textContent = el.textContent.substring(2);
+    }
+    if (el.getAttribute('data-i18n-text') === activePinKey) {
+      el.textContent = '📍 ' + el.textContent;
+    }
+  });
+
+  // Update the tooltip of the pin button to match the active action
+  if (activePinKey && pinActionButton) {
+    pinActionButton.title = i18n.t(activePinKey);
+  }
 }
 
 /**
@@ -231,11 +246,30 @@ export function addMoreOption(strkey, handler) {
   item.className = 'dropdown-item';
   item.setAttribute('data-i18n-text', strkey);
   item.addEventListener('click', (ev) => {
+    activePinKey = strkey;
+    activePinHandler = handler;
+    updatePinIndicator();
     handler(ev);
     if (moreMenu) moreMenu.classList.remove('show');
   });
   if (moreMenu) moreMenu.appendChild(item);
+
+  if (!activePinHandler) {
+    activePinKey = strkey;
+    activePinHandler = handler;
+  }
 }
+
+// when clicking elsewhere on the document
+document.addEventListener('click', (ev) => {
+  if (moreMenu && !moreMenu.contains(ev.target)) {
+    moreMenu.classList.remove('show');
+  }
+  const routeDropdown = document.querySelector('.route-pill-dropdown.show');
+  if (routeDropdown) {
+    routeDropdown.classList.remove('show');
+  }
+});
 
 /**
  * Resets non-map UI elements to a clean initial state.
@@ -253,17 +287,6 @@ function resetUIState() {
     searchInput.value = '';
   }
 }
-
-// when clicking elsewhere on the document
-document.addEventListener('click', () => {
-  if (moreMenu) {
-    moreMenu.classList.remove('show');
-  }
-  const routeDropdown = document.querySelector('.route-pill-dropdown.show');
-  if (routeDropdown) {
-    routeDropdown.classList.remove('show');
-  }
-});
 
 export function mapPanTo(lat, lng, zoom = null) {
   if (!map || !validateCoords(lat, lng)) return;
@@ -314,6 +337,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Build the "More" menu options once on startup.
   if (moreMenu) {
+    addMoreOption('app.search_landmarks', searchAirport);
+
     addMoreOption('app.toggle_details', async () => {
       myMapId = myMapId === mapId1 ? mapId2 : mapId1;
       await loadMap();
@@ -359,6 +384,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         placeName = routeState.lastStopName;
       }
       create3DMapOverlay(center.lat(), center.lng(), placeName);
+      /// 2add: push state to enable back button to close the 3D overlay
       window.history.pushState({ overlay: '3d-aerial' }, '');
     });
 
@@ -390,7 +416,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   searchInput.addEventListener('focus', (e) => {
-    clearRouteState();
+    resetUIState();
     infoSidebar.classList.add('hidden');
     e.target.select();
   });
@@ -410,8 +436,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     moreMenu.classList.toggle('show');
   });
 
-  searchLandmarksButton.addEventListener('click', async () => {
-    await searchAirport();
+  pinActionButton.addEventListener('click', async () => {
+    if (activePinHandler) {
+      await activePinHandler();
+    }
   });
 
   settingsButton.addEventListener('click', async () => {
@@ -419,6 +447,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   if (i18n.lang.secondLocale) {
+    localeButton.classList.remove('hidden');
     localeButton.addEventListener('click', async () => {
       i18n.userLocale =
         i18n.userLocale === i18n.lang.preferLocale
@@ -426,6 +455,8 @@ document.addEventListener('DOMContentLoaded', async () => {
           : i18n.lang.preferLocale;
       localeButton.textContent = getGlobeEmoji(i18n.userLocale);
       await applyTranslations();
+      updatePinIndicator();
+      settingDialog.renderTable();
     });
   }
 
@@ -445,7 +476,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (event.key === 'Escape') {
       // Hide sidebars and clear route state
-      clearRouteState();
+      resetUIState();
     }
 
     if (event.code === 'Space') {
@@ -465,6 +496,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // async transation update while loading map
     await updateTranslation(true);
     await applyTranslations();
+    updatePinIndicator();
   }
 });
 

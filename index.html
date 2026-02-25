@@ -14,17 +14,14 @@
   <div id="map"></div>
 
   <!-- Custom Controls -->
-  <button id="bus-stops" class="control-button" data-i18n-title="tooltips.lookup_bus_stops">
+  <button id="bus-button" class="control-button" data-i18n-title="tooltips.bus_stops">
     🚐
   </button>
-  <button id="search-landmarks" class="control-button" data-i18n-title="tooltips.search_landmarks">
+  <button id="pin-button" class="control-button">
     📍
   </button>
   <button id="settings-button" class="control-button" data-i18n-title="tooltips.settings">
     ⚙️
-  </button>
-  <button id="locale-button" class="control-button" data-i18n-title="tooltips.my_locale">
-    🌏
   </button>
 
   <div id="more-wrapper" class="dropdown-wrapper">
@@ -80,7 +77,6 @@
             </svg>
           </button>
         </div>
-
         <div class="settings-bar-section center">
           <h2 id="settings-title" data-i18n-text="SettingDialog.settings_title"></h2>
           <div id="status-message" class="transitional-message" role="status" aria-label="Saved" aria-live="polite">
@@ -97,7 +93,6 @@
             </svg>
           </div>
         </div>
-
         <div class="settings-bar-section right">
           <button id="close-btn" class="icon-btn" data-i18n-title="tooltips.close_settings">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"
@@ -107,7 +102,6 @@
           </button>
         </div>
       </div>
-
       <div class="table-scrollable">
         <table id="settings-table">
           <tbody>
@@ -115,8 +109,14 @@
           </tbody>
         </table>
       </div>
+      <div style="margin-top: 10px;">
+        <button id="locale-button" class="icon-btn hidden" data-i18n-title="tooltips.my_locale" style="font-size: 1.25rem;">
+          🌏
+        </button>
+      </div>
     </div>
   </div>
+  
   <script>
     window.APP_CONFIG = {
       jsonConfig_url: '/config.json',

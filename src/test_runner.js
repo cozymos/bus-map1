@@ -121,7 +121,7 @@ async function testFindStopsNear() {
     A: new Set(['kmb']),
     B: new Set(['ctb']),
     C: new Set(['kmb']),
-    D: new Set(['ctb', 'gmb']),
+    D: new Set(['kmb', 'nlb']),
     E: new Set(['ctb', 'kmb']),
   };
 
@@ -168,11 +168,11 @@ async function testFindStopsNear() {
     ]);
     check("Operator filter for 'kmb'", result4, ['E', 'A', 'C']);
 
-    // Test Case 5: Joint operator filter. Should find stops operated by 'gmb'.
+    // Test Case 5: Joint operator filter. Should find stops operated by 'nlb'.
     let result5 = hkbusData.findStopsNear(centerLat, centerLng, 300, 10, 1, [
-      'gmb',
+      'nlb',
     ]);
-    check("Operator filter for 'gmb' (joint route)", result5, ['D']);
+    check("Operator filter for 'nlb' (joint route)", result5, ['D']);
 
     // Test Case 6: Skipped as requested. The auto-expansion logic is designed
     // to avoid returning no results, making this test case invalid.

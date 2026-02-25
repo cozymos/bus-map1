@@ -25,6 +25,7 @@ export const routeState = {
   manualHide: false,
   programmaticPan: false,
   nearestStopId: null,
+  isDragging: false,
 };
 export const streetZoom = 15;
 
@@ -32,7 +33,7 @@ let map;
 let searchCircle = null;
 let centerMarker = null;
 let nearestStopMarker = null;
-let routeSidebarClickHandler = null;
+let sidebarClickHandler = null;
 let debounceTimer = null; // For debouncing the idle event
 let isThrottled = false; // Flag for throttling
 const markerCache = new Map(); // Cache all created marker objects
@@ -58,7 +59,12 @@ export function initBusRoute(mapInstance) {
       centerMarker.position = center;
     }
     if (searchCircle) {
-      searchCircle.setCenter(center);
+      if (routeState.activeId) {
+        searchCircle.setMap(null);
+      } else {
+        searchCircle.setCenter(center);
+        searchCircle.setMap(map);
+      }
     }
   });
 
@@ -131,9 +137,11 @@ async function initSearchCircle() {
     if (searchCircle) {
       const zoom = map.getZoom();
       searchCircle.setRadius(getBusStopSearchRadius(zoom));
-      if (zoom < streetZoom) {
+      if (zoom < streetZoom || routeState.activeId) {
         searchCircle.setMap(null);
       } else {
+        const center = map.getCenter();
+        searchCircle.setCenter(center);
         searchCircle.setMap(map);
       }
     }
@@ -217,7 +225,7 @@ export async function searchBusStop() {
         if (typeof stopName === 'object' && stopName !== null) {
           const userLang = i18n.userLocale.split('-')[0].toLowerCase();
           stopName =
-            stopName.zh ||  /// 2mvp: Preset zh for testing
+            stopName.zh || /// 2mvp: Preset zh for testing
             stopName.tc ||
             stopName[userLang] ||
             stopName.en ||
@@ -271,19 +279,12 @@ export async function searchBusStop() {
     const isRouteActive =
       routeState.activeId && routes.some((r) => r.id === routeState.activeId);
 
-    if (!isRouteActive && hasNearestStopChanged) {
+    if (hasNearestStopChanged && !isRouteActive) {
       clearRouteStopMarkers();
-      /*
-      * This was disabled. Drawing all polylines for the nearest stop is
-      * too resource-intensive, and visually too cluttered.
-      * 
-      console.debug(
-        `Drawing ${routes.length} routes for nearest stop ${nearest.id}`
-      );
-      for (let i = 0; i < routes.length; i++) {
-        await drawRoute(routes[i].id, i === 0);
+      // If no route is active, show the nearest stop sidebar
+      if (!routeState.activeId) {
+        updateNearestStopSidebar(nearest, routes);
       }
-      */
     }
     updateRoutePopover(routes, nearest.id);
   } else {
@@ -294,7 +295,8 @@ export async function searchBusStop() {
 }
 
 export function toggleRouteSidebar() {
-  if (routeState.activeId && infoSidebar) {
+  // The sidebar is relevant if either a route is active OR a nearest stop is identified.
+  if ((routeState.activeId || routeState.nearestStopId) && infoSidebar) {
     const isHidden = infoSidebar.classList.contains('hidden');
     routeState.manualHide = !isHidden;
     infoSidebar.classList.toggle('hidden', !isHidden);
@@ -371,6 +373,11 @@ export function clearRouteState() {
   routeState.nearestStopId = null;
   clearRouteStopMarkers();
   clearPolylines();
+  // also clear the handler
+  if (sidebarClickHandler) {
+    infoContent.removeEventListener('click', sidebarClickHandler);
+    sidebarClickHandler = null;
+  }
 
   // Clear caches to ensure a clean state on map reload
   markerCache.clear();
@@ -432,6 +439,69 @@ function initRoutePopover() {
   routeState.popover = document.createElement('div');
   routeState.popover.id = 'route-popover';
   document.body.appendChild(routeState.popover);
+  routeState.popover.addEventListener('scroll', updateScrollIndicators);
+
+  // Enable mouse wheel scrolling (vertical wheel -> horizontal scroll)
+  routeState.popover.addEventListener(
+    'wheel',
+    (e) => {
+      // Only intercept primarily vertical scrolling (e.g. mouse wheel)
+      if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+        e.preventDefault();
+        routeState.popover.scrollLeft += e.deltaY;
+      }
+    },
+    { passive: false }
+  );
+
+  // Drag to scroll logic for desktop
+  let isDown = false;
+  let startX;
+  let scrollLeft;
+
+  routeState.popover.addEventListener('mousedown', (e) => {
+    isDown = true;
+    routeState.isDragging = false;
+    routeState.popover.classList.add('active');
+    startX = e.pageX;
+    scrollLeft = routeState.popover.scrollLeft;
+  });
+
+  routeState.popover.addEventListener('mouseleave', () => {
+    isDown = false;
+    routeState.popover.classList.remove('active');
+  });
+
+  routeState.popover.addEventListener('mouseup', () => {
+    isDown = false;
+    routeState.popover.classList.remove('active');
+  });
+
+  routeState.popover.addEventListener('mousemove', (e) => {
+    if (!isDown) return;
+    e.preventDefault();
+    const x = e.pageX;
+    const walk = (x - startX) * 1; // Scroll speed 1:1
+    if (!routeState.isDragging && Math.abs(walk) > 5) {
+      routeState.isDragging = true;
+    }
+    if (routeState.isDragging) {
+      routeState.popover.scrollLeft = scrollLeft - walk;
+    }
+  });
+
+  // Prevent click on pills when dragging
+  routeState.popover.addEventListener(
+    'click',
+    (e) => {
+      if (routeState.isDragging) {
+        e.preventDefault();
+        e.stopPropagation();
+        routeState.isDragging = false;
+      }
+    },
+    true // Capture phase
+  );
 }
 
 /**
@@ -463,9 +533,14 @@ function createRoutePill(route, allRoutes, nearestStopId) {
       routeState.activeId = null;
       clearRouteStopMarkers();
       clearPolylines();
+      clearNearestStopMarker();
       if (infoSidebar) infoSidebar.classList.add('hidden');
       routeState.programmaticPan = true; // Prevent auto-search on zoom
       map.setZoom(streetZoom);
+      // Hide the popover completely when turning off a route.
+      if (routeState.popover) {
+        routeState.popover.style.display = 'none';
+      }
     } else {
       // Turn ON
       const isFirst = routeState.activeId === null;
@@ -474,8 +549,8 @@ function createRoutePill(route, allRoutes, nearestStopId) {
       }
       routeState.activeId = route.id;
       await drawRouteStops(route.id, isFirst);
+      updateRoutePopover(allRoutes, nearestStopId); // Re-render to update active state
     }
-    updateRoutePopover(allRoutes, nearestStopId); // Re-render to update active state
   });
 
   return pill;
@@ -496,84 +571,112 @@ function updateRoutePopover(routes, nearestStopId) {
     return;
   }
 
-  routeState.popover.style.left = searchRect.right + 12 + 'px';
-  routeState.popover.style.top = searchRect.top + 'px';
+  // Position with safe zone: align left to sidebar edge (padding creates the visual gap)
+  // and move up to create vertical safe zone
+  const isMobile = window.innerWidth <= screenWidthThreshold;
+  const safeZonePadding = isMobile ? 24 : 12;
+  routeState.popover.style.left = searchRect.right + 'px';
+  routeState.popover.style.top = searchRect.top - safeZonePadding + 'px';
+
+  // Constrain width to fit on screen (extending to right edge)
+  const availableWidth = window.innerWidth - searchRect.right;
+  routeState.popover.style.maxWidth = `${availableWidth}px`;
   routeState.popover.style.display = 'flex';
 
-  // Create all pill elements and add them to the popover to measure them.
-  const allPillElements = routes.map((route) =>
-    createRoutePill(route, routes, nearestStopId)
-  );
+  // Create all pill elements and add them
   const fragment = document.createDocumentFragment();
-  allPillElements.forEach((pill) => fragment.appendChild(pill));
+  routes.forEach((route) => {
+    fragment.appendChild(createRoutePill(route, routes, nearestStopId));
+  });
   routeState.popover.appendChild(fragment);
 
-  // Calculate the dynamic pill limit based on available screen width.
-  const popoverStartX = routeState.popover.getBoundingClientRect().left;
-  const availableWidth = window.innerWidth - popoverStartX - 15; // 15px buffer
-  const moreButtonWidth = 60; // Estimated width for a "+N" button
-  const gap = 8; // As defined in CSS for the gap between pills
+  // Update fade indicators after layout
+  requestAnimationFrame(updateScrollIndicators);
+}
 
-  let cumulativeWidth = 0;
-  let pillLimit = 0;
+function updateNearestStopSidebar(nearestStop, routes) {
+  if (!infoSidebar || !hkbusData.data) return;
 
-  for (const pill of allPillElements) {
-    const pillWidth = pill.offsetWidth;
-    // Check if adding the current pill (and a potential "More" button) would exceed the available width.
-    const willOverflow =
-      cumulativeWidth +
-        pillWidth +
-        (pillLimit < routes.length - 1 ? moreButtonWidth : 0) >
-      availableWidth;
+  const userLang = i18n.userLocale.split('-')[0].toLowerCase();
+  const getLocName = (nameObj) => {
+    if (typeof nameObj !== 'object' || nameObj === null) return nameObj;
+    return (
+      nameObj.zh ||
+      nameObj.tc ||
+      nameObj[userLang] ||
+      nameObj.en ||
+      Object.values(nameObj).join(' ')
+    );
+  };
 
-    if (willOverflow && pillLimit > 0) {
-      break; // We can't fit this pill and the rest, so we stop here.
-    }
-    cumulativeWidth += pillWidth + gap;
-    pillLimit++;
+  const stopName = getLocName(nearestStop.name);
+  const headerHtml = `
+    <div class="route-sidebar-header">
+      <div class="route-sidebar-title">
+        ${stopName}
+      </div>
+    </div>
+  `;
+
+  let contentHtml = '';
+  routes.forEach((route) => {
+    const orig = getLocName(route.orig);
+    const dest = getLocName(route.dest);
+    contentHtml += `
+      <div class="route-stop-item" data-route-id="${route.id}">
+        <div class="route-sidebar-title">
+          ${route.route}
+          <span class="route-sidebar-details">
+            ${orig} ➔ ${dest}
+          </span>
+        </div>
+      </div>
+    `;
+  });
+
+  infoTitleContent.innerHTML = headerHtml;
+  infoContent.innerHTML = contentHtml;
+  if (!routeState.manualHide) {
+    infoSidebar.classList.remove('hidden');
   }
 
-  if (routes.length <= pillLimit) {
-    // All pills fit and are already in the DOM, so we're done.
+  // Remove old listener to prevent memory leaks
+  if (sidebarClickHandler) {
+    infoContent.removeEventListener('click', sidebarClickHandler);
+  }
+
+  // Add a single click listener to the parent container (event delegation)
+  sidebarClickHandler = async (event) => {
+    const item = event.target.closest('.route-stop-item');
+    if (!item || !item.dataset.routeId) return;
+
+    const routeId = item.dataset.routeId;
+    const isFirst = routeState.activeId === null;
+    routeState.activeId = routeId;
+    await drawRouteStops(routeId, isFirst);
+    const routesForPopover = hkbusData.getRoutesByStop(
+      routeState.nearestStopId
+    );
+    updateRoutePopover(routesForPopover, routeState.nearestStopId);
+  };
+  infoContent.addEventListener('click', sidebarClickHandler);
+}
+
+function updateScrollIndicators() {
+  const el = routeState.popover;
+  if (!el) return;
+
+  const isScrollable = el.scrollWidth > el.clientWidth;
+  if (!isScrollable) {
+    el.classList.remove('fade-left', 'fade-right');
     return;
-  } else {
-    // Not all pills fit, so clear the popover and rebuild with the "More" button.
-    routeState.popover.innerHTML = '';
-
-    // Show one less pill to make space for the "+N" button itself.
-    const visiblePillCount = pillLimit > 1 ? pillLimit - 1 : 0;
-    const visibleRoutes = routes.slice(0, visiblePillCount);
-    const hiddenRoutes = routes.slice(visiblePillCount);
-
-    visibleRoutes.forEach((route) => {
-      const pill = createRoutePill(route, routes, nearestStopId);
-      routeState.popover.appendChild(pill);
-    });
-
-    // Create "More" button and dropdown container
-    const moreContainer = document.createElement('div');
-    moreContainer.className = 'route-pill-more-container';
-
-    const moreButton = document.createElement('div');
-    moreButton.className = 'route-pill route-pill-more-button';
-    moreButton.textContent = `+${hiddenRoutes.length}`;
-
-    const dropdown = document.createElement('div');
-    dropdown.className = 'route-pill-dropdown';
-
-    hiddenRoutes.forEach((route) => {
-      dropdown.appendChild(createRoutePill(route, routes, nearestStopId));
-    });
-
-    moreButton.addEventListener('click', (e) => {
-      e.stopPropagation();
-      dropdown.classList.toggle('show');
-    });
-
-    moreContainer.appendChild(moreButton);
-    moreContainer.appendChild(dropdown);
-    routeState.popover.appendChild(moreContainer);
   }
+
+  const atStart = el.scrollLeft <= 0;
+  const atEnd = Math.abs(el.scrollWidth - el.clientWidth - el.scrollLeft) <= 1;
+
+  el.classList.toggle('fade-left', !atStart);
+  el.classList.toggle('fade-right', !atEnd);
 }
 
 function updateRouteSidebar(routeId) {
@@ -638,12 +741,12 @@ function updateRouteSidebar(routeId) {
   }
 
   // Remove old listener to prevent memory leaks
-  if (routeSidebarClickHandler) {
-    infoContent.removeEventListener('click', routeSidebarClickHandler);
+  if (sidebarClickHandler) {
+    infoContent.removeEventListener('click', sidebarClickHandler);
   }
 
   // Add a single click listener to the parent container (event delegation)
-  routeSidebarClickHandler = (event) => {
+  sidebarClickHandler = (event) => {
     const item = event.target.closest('.route-stop-item');
     if (!item) return; // Click was not on a stop item
 
@@ -664,5 +767,5 @@ function updateRouteSidebar(routeId) {
       mapPanTo(stop.location.lat, stop.location.lng, streetZoom);
     }
   };
-  infoContent.addEventListener('click', routeSidebarClickHandler);
+  infoContent.addEventListener('click', sidebarClickHandler);
 }

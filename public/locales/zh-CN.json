@@ -1,6 +1,7 @@
 {
   "app": {
     "loading_text": "加载中…",
+    "search_landmarks": "搜索地标",
     "search_placeholder": "搜索位置…",
     "user_location": "查找我的位置",
     "toggle_details": "切换详情",
@@ -28,9 +29,8 @@
     }
   },
   "tooltips": {
-    "lookup_bus_stops": "公交站点",
+    "bus_stops": "公交站点",
     "search_location": "搜索位置",
-    "search_landmarks": "搜索地标",
     "settings": "设置对话框",
     "my_locale": "切换语言",
     "close_sidebar": "关闭侧边栏",

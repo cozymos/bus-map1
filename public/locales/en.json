@@ -1,6 +1,7 @@
 {
   "app": {
     "loading_text": "Loading …",
+    "search_landmarks": "Search Landmarks",
     "search_placeholder": "Search location…",
     "user_location": "Find my location",
     "toggle_details": "Toggle Details",
@@ -28,9 +29,8 @@
     }
   },
   "tooltips": {
-    "lookup_bus_stops": "Bus Stops",
+    "bus_stops": "Bus Stops",
     "search_location": "Search Location",
-    "search_landmarks": "Search Landmarks",
     "settings": "Settings Dialog",
     "my_locale": "Switch Locale",
     "close_sidebar": "Close Sidebar",
