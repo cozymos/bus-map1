@@ -229,14 +229,16 @@ body {
 
 /* Landmarks Sidebar */
 #info-sidebar {
-  width: 180px;
+  width: 30vw;
+  min-width: 150px;
+  max-width: 210px;
   position: absolute;
   top: 50px;
   left: 10px;
   background-color: rgba(255, 255, 255, 0.8);
   border-radius: 4px;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-  max-height: calc(90% - 100px);
+  max-height: calc(100% - 120px);
   z-index: 10;
   display: flex;
   flex-direction: column;
@@ -277,6 +279,21 @@ body {
 
 #info-title-content {
   flex-grow: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+#info-title-content::after {
+  content: '▼';
+  margin-left: auto;
+  margin-right: 8px;
+  font-size: 12px;
+  color: #666;
+}
+
+#info-title-content.collapsed::after {
+  content: '▶';
 }
 
 #info-close-button {
@@ -497,6 +514,10 @@ body {
   background-color: #f5f5f5;
 }
 
+.dropdown-item.active::before {
+  content: '📍 ';
+}
+
 .hidden {
   display: none !important;
   /* visibility controlled by JS */
@@ -665,7 +686,13 @@ body {
 }
 
 .route-sidebar-title {
-  font-size: 18px;
+  font-size: 16px;
+  font-weight: bold;
+  color: #333;
+}
+
+.nearest-stop-sidebar-title {
+  font-size: 14px;
   font-weight: bold;
   color: #333;
 }

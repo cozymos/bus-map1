@@ -97,7 +97,8 @@ export async function getLandmarksWithGemini(
   lon,
   radius_km = 15,
   locale = i18n.lang.preferLocale,
-  promptPath = 'landmarks.discovery'
+  promptPath = 'landmarks.discovery',
+  extraVariables = {}
 ) {
   try {
     const prompt = GetPrompt(promptPath, {
@@ -106,6 +107,7 @@ export async function getLandmarksWithGemini(
       lat,
       lon,
       locale,
+      ...extraVariables,
     });
 
     const systemMsg = GetSystemMessage('travel_agent');

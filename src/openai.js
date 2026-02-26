@@ -37,7 +37,8 @@ export async function getLandmarksWithGPT(
   lon,
   radius_km = 15,
   locale = i18n.lang.preferLocale,
-  promptPath = 'landmarks.discovery'
+  promptPath = 'landmarks.discovery',
+  extraVariables = {}
 ) {
   if (isTestMode()) {
     console.log('Using test landmarks (test mode enabled)');
@@ -65,6 +66,7 @@ export async function getLandmarksWithGPT(
       lat,
       lon,
       locale,
+      ...extraVariables,
     });
 
     const systemMsg = GetSystemMessage('travel_agent');

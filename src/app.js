@@ -1,14 +1,12 @@
 /* eslint-disable no-undef */
 import {
   initSearch,
-  searchAirport,
+  searchLandmarks,
   showUserLocation,
   searchText,
 } from './search.js';
 import {
   initBusRoute,
-  searchBusStop,
-  toggleRouteSidebar,
   clearRouteState,
   routeState,
   streetZoom,
@@ -47,6 +45,8 @@ const searchSideBar = document.getElementById('search-bar-container');
 const searchInput = document.getElementById('search-input');
 const searchButton = document.getElementById('search-button');
 const infoSidebar = document.getElementById('info-sidebar');
+const infoTitleContent = document.getElementById('info-title-content');
+const infoContent = document.getElementById('info-content');
 const infoCloseButton = document.getElementById('info-close-button');
 const moreWrapper = document.getElementById('more-wrapper');
 const moreButton = document.getElementById('more-button');
@@ -61,7 +61,7 @@ let activePinKey = null;
 let activePinHandler = null;
 
 // Default coordinates (Hong Kong)
-let defaultLocation = { lat: 22.3082, lng: 114.1718 };
+let defaultLocation = { lat: 22.3086, lng: 114.1722 };
 export let defaultZoom = streetZoom;
 
 // Map instance
@@ -111,6 +111,12 @@ async function initMap() {
     }
 
     await loadMap();
+
+    // Mark the initial state to prevent back button from exiting the app
+    const currentState = window.history.state || {};
+    if (!currentState.appStart) {
+      window.history.replaceState({ ...currentState, appStart: true }, '');
+    }
 
     // When user clicks back or forward button
     window.onpopstate = () => {
@@ -203,8 +209,8 @@ async function loadMap() {
   initLandmark();
   initBusRoute(map);
 
-  map.controls[google.maps.ControlPosition.LEFT_BOTTOM].push(busStopsButton);
   map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(settingsButton);
+  //map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(busStopsButton);
   map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(pinActionButton);
   map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(moreWrapper);
 
@@ -222,12 +228,8 @@ async function loadMap() {
 
 function updatePinIndicator() {
   document.querySelectorAll('.dropdown-item').forEach((el) => {
-    if (el.textContent.startsWith('📍 ')) {
-      el.textContent = el.textContent.substring(2);
-    }
-    if (el.getAttribute('data-i18n-text') === activePinKey) {
-      el.textContent = '📍 ' + el.textContent;
-    }
+    const isActive = el.getAttribute('data-i18n-text') === activePinKey;
+    el.classList.toggle('active', isActive);
   });
 
   // Update the tooltip of the pin button to match the active action
@@ -337,7 +339,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Build the "More" menu options once on startup.
   if (moreMenu) {
-    addMoreOption('app.search_landmarks', searchAirport);
+    addMoreOption('app.search_landmarks', searchLandmarks);
 
     addMoreOption('app.toggle_details', async () => {
       myMapId = myMapId === mapId1 ? mapId2 : mapId1;
@@ -391,6 +393,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     addMoreOption('app.user_location', async () => {
       await showUserLocation();
     });
+    updatePinIndicator();
   }
 
   // Attach event listeners for UI elements that should only be set up once.
@@ -422,18 +425,24 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   infoCloseButton.addEventListener('click', () => {
-    infoSidebar.classList.add('hidden');
+    resetUIState();
+    if (!window.history.state?.appStart) {
+      window.history.back();
+    }
   });
 
-  busStopsButton.addEventListener('click', async () => {
-    if (!toggleRouteSidebar()) {
-      await searchBusStop();
-    }
+  infoTitleContent.addEventListener('click', () => {
+    const isHidden = infoContent.classList.toggle('hidden');
+    infoTitleContent.classList.toggle('collapsed', isHidden);
   });
 
   moreButton.addEventListener('click', (ev) => {
     ev.stopPropagation(); // Prevent click bubbling
     moreMenu.classList.toggle('show');
+  });
+
+  busStopsButton.addEventListener('click', async () => {
+    //await searchLandmarks();
   });
 
   pinActionButton.addEventListener('click', async () => {
@@ -455,7 +464,6 @@ document.addEventListener('DOMContentLoaded', async () => {
           : i18n.lang.preferLocale;
       localeButton.textContent = getGlobeEmoji(i18n.userLocale);
       await applyTranslations();
-      updatePinIndicator();
       settingDialog.renderTable();
     });
   }
@@ -496,7 +504,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     // async transation update while loading map
     await updateTranslation(true);
     await applyTranslations();
-    updatePinIndicator();
   }
 });
 

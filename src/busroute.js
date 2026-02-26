@@ -22,7 +22,6 @@ export const routeState = {
   activeId: null,
   stopMarkers: [],
   lastStopName: null,
-  manualHide: false,
   programmaticPan: false,
   nearestStopId: null,
   isDragging: false,
@@ -250,7 +249,7 @@ export async function searchBusStop() {
 
   // 5. Draw routes for nearest stop
   let nearest_m = 10;
-  if (zoom <= 16) {
+  if (zoom <= streetZoom + 1) {
     nearest_m = 40;
   } else if (zoom <= 20) {
     nearest_m = 20;
@@ -292,17 +291,6 @@ export async function searchBusStop() {
     routeState.nearestStopId = null; // Reset when no stop is near
     clearRouteState();
   }
-}
-
-export function toggleRouteSidebar() {
-  // The sidebar is relevant if either a route is active OR a nearest stop is identified.
-  if ((routeState.activeId || routeState.nearestStopId) && infoSidebar) {
-    const isHidden = infoSidebar.classList.contains('hidden');
-    routeState.manualHide = !isHidden;
-    infoSidebar.classList.toggle('hidden', !isHidden);
-    return true;
-  }
-  return false;
 }
 
 function clearPolylines() {
@@ -369,7 +357,6 @@ export function clearRouteState() {
   if (routeState.popover) routeState.popover.style.display = 'none';
   if (infoSidebar) infoSidebar.classList.add('hidden');
   routeState.activeId = null;
-  routeState.manualHide = false;
   routeState.nearestStopId = null;
   clearRouteStopMarkers();
   clearPolylines();
@@ -536,7 +523,7 @@ function createRoutePill(route, allRoutes, nearestStopId) {
       clearNearestStopMarker();
       if (infoSidebar) infoSidebar.classList.add('hidden');
       routeState.programmaticPan = true; // Prevent auto-search on zoom
-      map.setZoom(streetZoom);
+      if (map.getZoom() < streetZoom) map.setZoom(streetZoom);
       // Hide the popover completely when turning off a route.
       if (routeState.popover) {
         routeState.popover.style.display = 'none';
@@ -612,7 +599,7 @@ function updateNearestStopSidebar(nearestStop, routes) {
   const stopName = getLocName(nearestStop.name);
   const headerHtml = `
     <div class="route-sidebar-header">
-      <div class="route-sidebar-title">
+      <div class="nearest-stop-sidebar-title">
         ${stopName}
       </div>
     </div>
@@ -636,9 +623,7 @@ function updateNearestStopSidebar(nearestStop, routes) {
 
   infoTitleContent.innerHTML = headerHtml;
   infoContent.innerHTML = contentHtml;
-  if (!routeState.manualHide) {
-    infoSidebar.classList.remove('hidden');
-  }
+  infoSidebar.classList.remove('hidden');
 
   // Remove old listener to prevent memory leaks
   if (sidebarClickHandler) {
@@ -736,9 +721,7 @@ function updateRouteSidebar(routeId) {
 
   infoTitleContent.innerHTML = headerHtml;
   infoContent.innerHTML = contentHtml;
-  if (!routeState.manualHide) {
-    infoSidebar.classList.remove('hidden');
-  }
+  infoSidebar.classList.remove('hidden');
 
   // Remove old listener to prevent memory leaks
   if (sidebarClickHandler) {
@@ -764,7 +747,11 @@ function updateRouteSidebar(routeId) {
       item.classList.add('active-landmark');
 
       // Pan map to the selected stop
-      mapPanTo(stop.location.lat, stop.location.lng, streetZoom);
+      mapPanTo(
+        stop.location.lat,
+        stop.location.lng,
+        map.getZoom() < streetZoom ? streetZoom : null
+      );
     }
   };
   infoContent.addEventListener('click', sidebarClickHandler);

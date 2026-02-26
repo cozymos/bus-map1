@@ -238,8 +238,13 @@ export function updateUrlParameters(map, pushState = false) {
   const newUrl = `${window.location.pathname}?${urlParams.toString()}`;
   console.debug('URL:', newUrl);
 
-  if (pushState) window.history.pushState({ lat, lon, zoom }, '', newUrl);
-  else window.history.replaceState({ lat, lon, zoom }, '', newUrl);
+  const currentState = window.history.state || {};
+  const newState = { ...currentState, lat, lon, zoom };
+
+  if (pushState) {
+    delete newState.appStart;
+    window.history.pushState(newState, '', newUrl);
+  } else window.history.replaceState(newState, '', newUrl);
 }
 
 /**

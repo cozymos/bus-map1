@@ -2,8 +2,8 @@
   "defaults": {
     "locale": "zh-HK",
     "default_location": {
-      "lat": 22.3082,
-      "lon": 114.1718,
+      "lat": 22.3086,
+      "lon": 114.1722,
       "name": "Kowloon",
       "country": "Hong Kong",
       "country_code": "HK"
@@ -28,9 +28,9 @@
         "name": "星光大道",
         "desc": "星光大道位於尖沙咀海濱長廊，展示香港電影界的明星手印和雕塑，是欣賞維多利亞港夜景的熱門地點。",
         "loc": "九龍, 香港",
-        "lat": 22.293,
+        "lat": 22.2930,
         "lon": 114.1741,
-        "type": "test_mode"
+        "type": "旅遊景點"
       }
     ]
   }

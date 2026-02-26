@@ -7,21 +7,20 @@ import {
 import { getLandmarksWithGPT } from './openai.js';
 import { getLandmarksWithGemini } from './gemini.js';
 import {
-  getConfig,
   normalizeCoordValue,
   setLoading,
   handleError,
   updateUrlParameters,
   getMapCenter,
   isWithinHKBounds,
-  isTestMode,
 } from './utils.js';
 import { mapPanTo, defaultZoom } from './app.js';
 import { displayLandmarks, clearLandMarkers } from './landmark.js';
 import { i18n } from './lion.js';
+import { routeState } from './busroute.js';
+import { hkbusData } from './busdata.js';
 
 // DOM Elements
-const searchSideBar = document.getElementById('search-bar-container');
 const infoSidebar = document.getElementById('info-sidebar');
 const infoContent = document.getElementById('info-content');
 
@@ -35,8 +34,134 @@ export function initSearch() {
     console.error('Map instance not found. Please initialize the map first.');
     return;
   }
+}
 
-  searchSideBar.classList.remove('hidden');
+export async function searchLandmarks() {
+  try {
+    infoContent.innerHTML = '';
+    clearLandMarkers();
+    setLoading(true);
+
+    const center = getMapCenter(map);
+    const lat = normalizeCoordValue(center.lat);
+    const lon = normalizeCoordValue(center.lng);
+    const urlParams = new URLSearchParams(window.location.search);
+    const locationData = await getLocationDetails(lat, lon);
+
+    // Build context for LLM
+    if (!hkbusData.data) await hkbusData.load();
+    const context = buildBusRouteContext(lat, lon, locationData, i18n.userLocale);
+    console.debug('Landmark Context:', context);
+
+    let landmarkData = null;
+    if (urlParams.has('gpt')) {
+      landmarkData = await getLandmarksWithGPT(
+        locationData,
+        lat,
+        lon,
+        1,
+        i18n.userLocale,
+        'landmarks.busroute',
+        { context }
+      );
+    } else if (urlParams.has('gmp')) {
+      const filterType = {
+        includedPrimaryTypes: ['tourist_attraction'],
+        rankPreference: 'POPULARITY',
+      };
+      landmarkData = await PlaceNearbySearch(
+        lat,
+        lon,
+        1,
+        5,
+        i18n.userLocale,
+        filterType
+      );
+    } else {
+      landmarkData = await getLandmarksWithGemini(
+        locationData,
+        lat,
+        lon,
+        1,
+        i18n.userLocale,
+        'landmarks.busroute',
+        { context }
+      );
+    }
+
+    if (landmarkData?.landmarks?.length > 0) {
+      console.log(
+        `🏛️ Found ${landmarkData.landmarks.length} landmarks`,
+        landmarkData
+      );
+      await displayLandmarks(landmarkData);
+    }
+    updateUrlParameters(map, true);
+  } catch {
+    handleError(i18n.t('errors.no_results'));
+  } finally {
+    setLoading(false);
+  }
+}
+
+function buildBusRouteContext(lat, lon, locationData, locale) {
+  const getLocName = (nameObj) => {
+    if (typeof nameObj !== 'object' || nameObj === null) return nameObj;
+    const lang = locale.split('-')[0].toLowerCase();
+    return nameObj[lang] || nameObj.en || Object.values(nameObj)[0];
+  };
+
+  // 1. Active Route Context
+  if (routeState.activeId && hkbusData.data) {
+    const route = hkbusData.data.routeList[routeState.activeId];
+    if (route) {
+      const stopsMap = hkbusData.getStopsByRoute(routeState.activeId);
+      const companies = Object.keys(stopsMap);
+      const stops = companies.length ? stopsMap[companies[0]] : [];
+
+      // Sample stops to save tokens (Start, End, and ~15 intermediate points)
+      const sampled = [];
+      const step = Math.max(1, Math.floor(stops.length / 15));
+      for (let i = 0; i < stops.length; i += step) {
+        sampled.push(stops[i]);
+      }
+      // Ensure last stop is included
+      if (
+        stops.length > 0 &&
+        sampled[sampled.length - 1] !== stops[stops.length - 1]
+      ) {
+        sampled.push(stops[stops.length - 1]);
+      }
+
+      const waypoints = sampled
+        .map((s) => {
+          const name = getLocName(s.name);
+          return `${name} (${s.location?.lat?.toFixed(3)},${s.location?.lng?.toFixed(3)})`;
+        })
+        .join(' -> ');
+
+      const orig = getLocName(route.orig);
+      const dest = getLocName(route.dest);
+      return `Bus Route ${route.route} from ${orig} to ${dest}. Waypoints: ${waypoints}`;
+    }
+  }
+
+  // 2. Nearest Stop Context
+  if (routeState.nearestStopId && hkbusData.data) {
+    const stop = hkbusData.data.stopList[routeState.nearestStopId];
+    if (stop) {
+      const routes = hkbusData.getRoutesByStop(routeState.nearestStopId);
+      const routeList = routes
+        .slice(0, 10)
+        .map((r) => `${r.route} (to ${getLocName(r.dest)})`)
+        .join(', ');
+      const stopName = getLocName(stop.name);
+      return `Near Bus Stop: ${stopName} (${stop.location.lat}, ${stop.location.lng}). Routes serving this stop: ${routeList}`;
+    }
+  }
+
+  // 3. Map Center Context (Fallback)
+  return `Current map center: ${lat}, ${lon} (${locationData.locationName})`;
 }
 
 /**
@@ -123,70 +248,4 @@ export async function showUserLocation() {
   mapPanTo(userLocation.lat, userLocation.lng, defaultZoom);
   updateUrlParameters(map, true);
   return userLocation;
-}
-
-export async function searchAirport() {
-  try {
-    infoContent.innerHTML = '';
-    clearLandMarkers();
-    setLoading(true);
-
-    const center = getMapCenter(map);
-    const lat = normalizeCoordValue(center.lat);
-    const lon = normalizeCoordValue(center.lng);
-    const urlParams = new URLSearchParams(window.location.search);
-    const locationData = await getLocationDetails(lat, lon);
-
-    let landmarkData = null;
-    if (isTestMode()) {
-      console.log('Using test landmarks (test mode enabled)');
-      const config = await getConfig();
-      landmarkData = {
-        location: config?.defaults?.default_location?.name,
-        coordinates: [lat, lon],
-        landmarks: config?.test_mode?.test_landmarks || [],
-        cache_type: 'test_mode',
-      };
-    } else if (urlParams.has('gpt')) {
-      landmarkData = await getLandmarksWithGPT(
-        locationData,
-        lat,
-        lon,
-        100,
-        i18n.userLocale,
-        'landmarks.airport'
-      );
-    } else if (urlParams.has('gmp')) {
-      const filterType = {
-        includedPrimaryTypes: ['airport', 'international_airport'],
-        rankPreference: 'DISTANCE',
-      };
-      landmarkData = await PlaceNearbySearch(
-        lat,
-        lon,
-        50,
-        20,
-        i18n.userLocale,
-        filterType
-      );
-    } else {
-      landmarkData = await getLandmarksWithGemini(
-        locationData,
-        lat,
-        lon,
-        100,
-        i18n.userLocale,
-        'landmarks.airport'
-      );
-    }
-
-    if (landmarkData?.landmarks?.length > 0) {
-      await displayLandmarks(landmarkData);
-    }
-    updateUrlParameters(map, true);
-  } catch {
-    handleError(i18n.t('errors.no_results'));
-  } finally {
-    setLoading(false);
-  }
 }
