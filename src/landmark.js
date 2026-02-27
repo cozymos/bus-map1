@@ -2,6 +2,7 @@
 import { validateCoords, escapeHTML, screenWidthThreshold } from './utils.js';
 import { i18n, setTooltip } from './lion.js';
 import { mapPanTo } from './app.js';
+import { routeState } from './busroute.js';
 
 // DOM Elements
 const infoSidebar = document.getElementById('info-sidebar');
@@ -29,37 +30,42 @@ export function initLandmark() {
 /**
  * Display landmarks on the map and in the sidebar
  */
-export async function displayLandmarks(landmark_data) {
-  const { AdvancedMarkerElement } = await google.maps.importLibrary('marker');
-
-  // Clear existing info windows
-  infoWindows.forEach((iw) => iw.close());
-
+export async function displayLandmarks(landmark_data, headerTitle) {
   // Clear and prepare sidebar
   infoContent.innerHTML = '';
   infoTitleContent.innerHTML = '';
+  infoWindows.forEach((iw) => iw.close());
+
+  if (headerTitle) {
+    infoTitleContent.innerHTML = `
+      <div class="route-sidebar-header">
+        <div class="nearest-stop-sidebar-title">
+          ${headerTitle}
+        </div>
+      </div>
+    `;
+  }
 
   // Process each landmark sequentially with proper async/await
   for (const landmark of landmark_data.landmarks) {
-    const placeName = landmark.name;
+    const title = landmark.name;
     const lat = landmark.lat;
     const lon = landmark.lon;
 
     // Validate coordinates before creating marker
     let has_marker = true;
-    if (placeName == null) {
+    if (title == null) {
       continue; // Skip this landmark
     } else if (lat == null || lon == null) {
       has_marker = false;
     } else if (!validateCoords(lat, lon)) {
-      console.warn('Invalid coordinates:', placeName, { lat, lon });
+      console.warn('Invalid coordinates:', title, { lat, lon });
       continue;
     }
 
     // Create sidebar element
     const index = landMarkers.length;
     const landmarkElement = createSidebarElement(landmark, index);
-
     if (has_marker) {
       const position = {
         lat: lat,
@@ -67,32 +73,17 @@ export async function displayLandmarks(landmark_data) {
       };
 
       // Create marker
-      const markerView = new AdvancedMarkerElement({
-        position: position,
-        map: map,
-        // title: placeName,
-        content: createMarkerElement(placeName),
-      });
-
+      const markerView = await createMarkerElement(map, position, title);
       markerView.index = index;
       markerView.desc = landmark.desc;
       landMarkers.push(markerView);
 
       // Create info window
-      const infoWindowContent = createInfoWindowContent(landmark, index);
-      const infoWindow = new google.maps.InfoWindow({
-        content: infoWindowContent,
-      });
+      const infoWindow = createInfoWindow(landmark, index);
       infoWindows.push(infoWindow);
 
       // Setup interactions
-      setupPlaceInteractions(
-        markerView,
-        infoWindow,
-        landmarkElement,
-        position,
-        index
-      );
+      setupPlaceInteractions(markerView, infoWindow, landmarkElement, position);
     }
   }
 
@@ -102,45 +93,72 @@ export async function displayLandmarks(landmark_data) {
 
 /**
  * Create a custom element for the advanced marker
- * @param {string} title - The title to display in the marker
- * @returns {HTMLElement} The marker element
+ * @param {google.maps.Map} map - The map instance
+ * @param {Object} position - LatLng object
+ * @param {string} title - The title to display
+ * @returns {google.maps.marker.AdvancedMarkerElement} The marker instance
  */
-function createMarkerElement(title) {
+async function createMarkerElement(map, position, title) {
+  const { AdvancedMarkerElement, PinElement } =
+    await google.maps.importLibrary('marker');
+
   // Create a container for the marker
   const container = document.createElement('div');
   container.className = 'marker-container'; // Class for position: relative
 
-  // Create dot element
-  const element = document.createElement('div');
-  element.className = 'marker-element';
-  element.dataset.title = title; // Store title for later use
+  // Create native PinElement
+  const pin = new PinElement({
+    background: '#EA4335',
+    borderColor: '#FFFFFF',
+    glyphColor: '#A52714',
+    scale: 1.0,
+  });
+  container.pinInstance = pin; // Store reference for state updates
 
-  // Add marker title that shows on hover
-  const titleElement = document.createElement('div');
-  titleElement.textContent = title;
-  titleElement.className = 'marker-title';
+  // Add hover interactions via JS since we are using PinElement properties
+  container.addEventListener('mouseenter', () => {
+    pin.scale = 1.2;
+  });
+  container.addEventListener('mouseleave', () => {
+    pin.scale = 1.0;
+  });
+  container.appendChild(pin);
 
-  // Append to container
-  container.appendChild(element);
-  container.appendChild(titleElement);
-  return container;
+  return new AdvancedMarkerElement({
+    position: position,
+    map: map,
+    content: container,
+    title: title,
+  });
 }
 
 /**
  * Create info window content for a place
  */
-function createInfoWindowContent(landmark, index) {
+function createInfoWindow(landmark) {
   const infoWindowContent = document.createElement('div');
   infoWindowContent.className = 'info-window-content';
 
   const titleElement = document.createElement('h3');
   titleElement.className = 'info-window-title';
   titleElement.textContent = landmark.name;
-  titleElement.addEventListener('click', () => {
-    highlightMarkerAndSidebar(index);
-  });
   infoWindowContent.appendChild(titleElement);
-  return infoWindowContent;
+
+  if (landmark.desc) {
+    const descElement = document.createElement('div');
+    descElement.style.cssText = `
+      font-size: 14px;
+      line-height: 1.4;
+      color: #333;
+      margin-top: 8px;
+    `;
+    descElement.textContent = landmark.desc;
+    infoWindowContent.appendChild(descElement);
+  }
+
+  return new google.maps.InfoWindow({
+    content: infoWindowContent,
+  });
 }
 
 /**
@@ -174,70 +192,29 @@ function createSidebarElement(landmark, index) {
 }
 
 /**
- * Highlight marker and corresponding sidebar item
- */
-function highlightMarkerAndSidebar(index) {
-  // Remove active class from all markers and sidebar items
-  for (const marker of landMarkers) {
-    const markerElement = marker.content.querySelector('.marker-element');
-    if (markerElement) {
-      markerElement.classList.remove('active-marker');
-    }
-  }
-
-  document.querySelectorAll('.landmark-item').forEach((item) => {
-    item.classList.remove('active-landmark');
-  });
-
-  // Add active class to current marker and sidebar item
-  const markerElement =
-    landMarkers[index].content.querySelector('.marker-element');
-  if (markerElement) {
-    markerElement.classList.add('active-marker');
-  }
-
-  infoSidebar.classList.remove('hidden');
-  const sidebarItem = document.querySelector(
-    `.landmark-item[data-index="${index}"]`
-  );
-  if (sidebarItem) {
-    sidebarItem.classList.add('active-landmark');
-    sidebarItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }
-}
-
-/**
  * Setup click handlers for marker and sidebar interaction
  */
 function setupPlaceInteractions(
   markerView,
   infoWindow,
   landmarkElement,
-  position,
-  index
+  position
 ) {
   // Marker click handler
   markerView.addListener('gmp-click', () => {
-    const isNarrowScreen = window.innerWidth <= screenWidthThreshold;
+    routeState.lastStopName = markerView.title;
     infoWindows.forEach((iw) => iw.close());
     infoWindow.open({
       anchor: markerView,
       map: map,
     });
-    map.panTo(position);
-
-    if (isNarrowScreen) {
-      infoSidebar.classList.add('hidden');
-    }
-
-    if (!infoSidebar.classList.contains('hidden')) {
-      highlightMarkerAndSidebar(index);
-    }
+    mapPanTo(position.lat, position.lng);
   });
 
   // Sidebar click handler
   const landmarkNameElement = landmarkElement.querySelector('.landmark-name');
   landmarkNameElement.addEventListener('click', () => {
+    routeState.lastStopName = markerView.title;
     const isNarrowScreen = window.innerWidth <= screenWidthThreshold;
     infoWindows.forEach((iw) => iw.close());
     if (!isNarrowScreen) {
@@ -246,7 +223,6 @@ function setupPlaceInteractions(
         map: map,
       });
     }
-    highlightMarkerAndSidebar(index);
 
     // Pans the map accounting for the sidebar width on narrow screens.
     const sidebarWidth = infoSidebar.offsetWidth; // Capture width before pan
@@ -660,16 +636,20 @@ async function add3DMarkersAndPopovers(map3DElement, lib) {
 
         // Create header with landmark name
         const header = document.createElement('div');
-        header.style.fontWeight = 'bold';
-        header.style.fontSize = '16px';
-        header.style.marginBottom = '8px';
+        header.style.cssText = `
+          padding: 10px;
+          padding-bottom: 0;
+          font-weight: bold;
+          font-size: 16px;
+        `;
         header.slot = 'header';
         header.textContent = markerView.title;
 
-        // Create content with image and description
+        // Create content with description
         const content = document.createElement('div');
         content.style.cssText = `
-          max-width: 300px;
+          padding: 10px;
+          max-width: 200px;
         `;
 
         if (markerView.desc) {

@@ -1,18 +1,20 @@
 {
   "app": {
-    "loading_text": "載入中…",
-    "search_landmarks": "搜尋地標",
-    "search_placeholder": "搜尋位置…",
+    "loading_text": "載入中 …",
+    "search_landmarks": "AI 地標",
+    "search_placeholder": "搜尋路線或位置…",
+    "search_route": "搜尋路線",
+    "search_stop": "搜尋站點",
     "user_location": "尋找我的位置",
     "toggle_details": "切換詳情",
     "toggle_traffic": "切換交通",
-    "toggle_transit": "切換公共交通",
+    "toggle_transit": "切換公交",
     "show_street_view": "顯示街景",
-    "show_3d_aerial": "顯示3D空照圖"
+    "show_3d_aerial": "顯示 3D 航拍"
   },
   "Settings": {
-    "GOOGLE_MAPS_API_KEY": "Google 地圖 API 金鑰",
-    "OPENAI_API_KEY": "OpenAI API 金鑰"
+    "GOOGLE_MAPS_API_KEY": "Google 地圖 API 密鑰",
+    "OPENAI_API_KEY": "OpenAI API 密鑰"
   },
   "SettingDialog": {
     "settings_title": "設定",
@@ -21,6 +23,9 @@
     "delete_confirm": "你確定要刪除 \"{key}\" 設定嗎？"
   },
   "landmark": {
+    "aerial_view": "航拍圖",
+    "near_route": "附近路線：",
+    "near_stop": "附近站點：",
     "overlay": {
       "load_failed_title": "3D 地圖載入失敗",
       "load_failed_description": "Google 3D 地圖視圖無法初始化。",
@@ -47,7 +52,7 @@
     "map_init_failed": "地圖初始化失敗",
     "location_not_found": "找不到位置",
     "no_results": "沒有搜尋結果",
-    "geolocation_not_supported": "不支援地理位置",
-    "unable_to_get_geolocation": "無法取得地理位置"
+    "geolocation_not_supported": "不支援地理定位",
+    "unable_to_get_geolocation": "無法取得地理定位"
   }
 }

@@ -311,6 +311,110 @@ class HKBusData {
     }
     return result;
   }
+
+  /**
+   * Search for routes matching the query string (prefix match on route number).
+   * Returns a list of [routeId, routeName, description].
+   */
+  searchRouteByNumber(query) {
+    if (!this.data || !this.data.routeList || !query) return [];
+
+    const q = String(query).trim().toUpperCase();
+    if (!q) return [];
+
+    const results = [];
+    const getName = (n) => {
+      if (typeof n === 'string') return n;
+      if (!n) return '';
+      return n.en || n.zh || n.tc || Object.values(n)[0] || '';
+    };
+
+    for (const [id, route] of Object.entries(this.data.routeList)) {
+      const routeStr = String(route.route);
+      if (routeStr.toUpperCase().startsWith(q)) {
+        const orig = getName(route.orig);
+        const dest = getName(route.dest);
+        results.push([id, routeStr, `${orig} ➔ ${dest}`]);
+      }
+    }
+
+    // Sort by route name naturally (e.g. 2, 2A, 20)
+    results.sort((a, b) =>
+      a[1].localeCompare(b[1], undefined, { numeric: true })
+    );
+    return results;
+  }
+
+  /**
+   * Search for routes containing stops (or orig/dest) matching the query string.
+   * Returns a list of [routeId, routeName, matchedName].
+   */
+  searchStopByName(query) {
+    if (!this.data || !this.data.routeList || !query) return [];
+
+    const q = String(query).trim().toLowerCase();
+    if (!q) return [];
+
+    const results = [];
+    const seen = new Set();
+
+    const getName = (n) => {
+      if (typeof n === 'string') return n;
+      if (!n) return '';
+      return n.en || n.zh || n.tc || Object.values(n)[0] || '';
+    };
+
+    const matches = (n) => {
+      if (!n) return false;
+      if (typeof n === 'string') return n.toLowerCase().includes(q);
+      return Object.values(n).some((v) => String(v).toLowerCase().includes(q));
+    };
+
+    // 1. Search in Route Origin/Destination
+    for (const [id, route] of Object.entries(this.data.routeList)) {
+      if (matches(route.orig)) {
+        const name = getName(route.orig);
+        const key = `${id}|${name}`;
+        if (!seen.has(key)) {
+          results.push([id, String(route.route), name]);
+          seen.add(key);
+        }
+      }
+      if (matches(route.dest)) {
+        const name = getName(route.dest);
+        const key = `${id}|${name}`;
+        if (!seen.has(key)) {
+          results.push([id, String(route.route), name]);
+          seen.add(key);
+        }
+      }
+    }
+
+    // 2. Search in Stops
+    for (const stop of this.stopsArray) {
+      if (matches(stop.name)) {
+        const stopName = getName(stop.name);
+        const routeIds = this.stopToRoutes[stop.id];
+        if (routeIds) {
+          for (const routeId of routeIds) {
+            const route = this.data.routeList[routeId];
+            if (!route) continue;
+            const key = `${routeId}|${stopName}`;
+            if (!seen.has(key)) {
+              results.push([routeId, String(route.route), stopName]);
+              seen.add(key);
+            }
+          }
+        }
+      }
+    }
+
+    // Sort by route name naturally
+    results.sort((a, b) =>
+      a[1].localeCompare(b[1], undefined, { numeric: true })
+    );
+    return results;
+  }
 }
 
 // Instantiate as singleton

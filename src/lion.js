@@ -304,6 +304,7 @@ class I18n {
 }
 
 export const i18n = new I18n();
+window.i18n = i18n;
 
 export async function initi18n() {
   // Set the language based on config or browser settings

@@ -36,7 +36,7 @@ Example format:
       template: `Discover the top 3 most interesting tourist attractions based on the following context:
 {context}
 
-For each attraction, return:
+For each landmark, return:
 - 'name': the most relevant and identifiable name to show on a map, and nothing else
 - 'desc': a brief but informative summary (2-3 sentences, max 100 words)
 - 'loc': where is the landmark (district, city/region, state/province, country), not street address

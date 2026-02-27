@@ -1,8 +1,10 @@
 {
   "app": {
     "loading_text": "Loading …",
-    "search_landmarks": "Search Landmarks",
-    "search_placeholder": "Search location…",
+    "search_landmarks": "AI Landmarks",
+    "search_placeholder": "Search route or location…",
+    "search_route": "Search route",
+    "search_stop": "Search stop",
     "user_location": "Find my location",
     "toggle_details": "Toggle Details",
     "toggle_traffic": "Toggle Traffic",
@@ -21,6 +23,9 @@
     "delete_confirm": "Are you sure you want to delete the \"{key}\" setting?"
   },
   "landmark": {
+    "aerial_view": "Aerial View",
+    "near_route": "Near Route:",
+    "near_stop": "Near Stop:",
     "overlay": {
       "load_failed_title": "3D Map Failed to Load",
       "load_failed_description": "The Google 3D Map view could not be initialized.",

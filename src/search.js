@@ -17,7 +17,12 @@ import {
 import { mapPanTo, defaultZoom } from './app.js';
 import { displayLandmarks, clearLandMarkers } from './landmark.js';
 import { i18n } from './lion.js';
-import { routeState } from './busroute.js';
+import {
+  routeState,
+  renderRouteListSidebar,
+  updateRoutePopover,
+  clearRouteState,
+} from './busroute.js';
 import { hkbusData } from './busdata.js';
 
 // DOM Elements
@@ -38,7 +43,6 @@ export function initSearch() {
 
 export async function searchLandmarks() {
   try {
-    infoContent.innerHTML = '';
     clearLandMarkers();
     setLoading(true);
 
@@ -50,7 +54,12 @@ export async function searchLandmarks() {
 
     // Build context for LLM
     if (!hkbusData.data) await hkbusData.load();
-    const context = buildBusRouteContext(lat, lon, locationData, i18n.userLocale);
+    const { context, title } = buildBusRouteContext(
+      lat,
+      lon,
+      locationData,
+      i18n.userLocale
+    );
     console.debug('Landmark Context:', context);
 
     let landmarkData = null;
@@ -94,9 +103,9 @@ export async function searchLandmarks() {
         `🏛️ Found ${landmarkData.landmarks.length} landmarks`,
         landmarkData
       );
-      await displayLandmarks(landmarkData);
+      await displayLandmarks(landmarkData, title);
     }
-    updateUrlParameters(map, true);
+    updateUrlParameters(map);
   } catch {
     handleError(i18n.t('errors.no_results'));
   } finally {
@@ -119,7 +128,7 @@ function buildBusRouteContext(lat, lon, locationData, locale) {
       const companies = Object.keys(stopsMap);
       const stops = companies.length ? stopsMap[companies[0]] : [];
 
-      // Sample stops to save tokens (Start, End, and ~15 intermediate points)
+      // Sample stops to save tokens (Start, End, and some intermediate waypoints)
       const sampled = [];
       const step = Math.max(1, Math.floor(stops.length / 15));
       for (let i = 0; i < stops.length; i += step) {
@@ -142,7 +151,10 @@ function buildBusRouteContext(lat, lon, locationData, locale) {
 
       const orig = getLocName(route.orig);
       const dest = getLocName(route.dest);
-      return `Bus Route ${route.route} from ${orig} to ${dest}. Waypoints: ${waypoints}`;
+      return {
+        context: `Bus Route ${route.route} from ${orig} to ${dest}. Waypoints: ${waypoints}`,
+        title: `${i18n.t('landmark.near_route')} ${route.route} ${orig} ➔ ${dest}`,
+      };
     }
   }
 
@@ -151,17 +163,24 @@ function buildBusRouteContext(lat, lon, locationData, locale) {
     const stop = hkbusData.data.stopList[routeState.nearestStopId];
     if (stop) {
       const routes = hkbusData.getRoutesByStop(routeState.nearestStopId);
+      // limiting routes (to some unique destinations) to save tokens
       const routeList = routes
-        .slice(0, 10)
+        .slice(0, 15)
         .map((r) => `${r.route} (to ${getLocName(r.dest)})`)
         .join(', ');
       const stopName = getLocName(stop.name);
-      return `Near Bus Stop: ${stopName} (${stop.location.lat}, ${stop.location.lng}). Routes serving this stop: ${routeList}`;
+      return {
+        context: `Near Bus Stop: ${stopName} (${stop.location.lat}, ${stop.location.lng}). Routes serving this stop: ${routeList}`,
+        title: `${i18n.t('landmark.near_stop')} ${stopName}`,
+      };
     }
   }
 
   // 3. Map Center Context (Fallback)
-  return `Current map center: ${lat}, ${lon} (${locationData.locationName})`;
+  return {
+    context: `Current map center: ${lat}, ${lon} (${locationData.locationName})`,
+    title: locationData.locationName,
+  };
 }
 
 /**
@@ -179,7 +198,37 @@ export async function searchText(query) {
     clearLandMarkers();
     setLoading(true);
 
-    // Pass 1: Geocoding API to lookup location
+    // Pass 1: Bus Route Search
+    if (!hkbusData.data) await hkbusData.load();
+    const routeResults = hkbusData.searchRouteByNumber(query);
+    if (routeResults.length > 0) {
+      clearRouteState();
+      const routes = routeResults.map(([id]) => ({
+        id,
+        ...hkbusData.data.routeList[id],
+      }));
+      const title = `${i18n.t('app.search_route')}: ${query}`;
+      renderRouteListSidebar(title, routes);
+      updateRoutePopover(routes, null);
+      return;
+    }
+
+    // Pass 2: Bus Stop Search
+    const stopResults = hkbusData.searchStopByName(query);
+    if (stopResults.length > 0) {
+      clearRouteState();
+      const routes = stopResults.map(([id]) => ({
+        id,
+        ...hkbusData.data.routeList[id],
+      }));
+      // Filter duplicates if any (though searchStopByName handles unique route IDs)
+      const title = `${i18n.t('app.search_stop')}: ${query}`;
+      renderRouteListSidebar(title, routes);
+      updateRoutePopover(routes, null);
+      return;
+    }
+
+    // Pass 3: Geocoding API to lookup location
     const coords = await getLocationCoord(query);
     if (coords && isWithinHKBounds(coords)) {
       console.debug(`location of "${query}": ${coords.lat}, ${coords.lon}`);
@@ -188,7 +237,7 @@ export async function searchText(query) {
       return;
     }
 
-    // Pass 2: call Google Text Search API
+    // Pass 4: call Google Text Search API
     let locData = await PlaceTextSearch(query, i18n.userLocale);
     if (locData?.landmarks?.length > 0) {
       const landmark = locData.landmarks[0];

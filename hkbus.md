@@ -38,7 +38,8 @@ This report outlines a set of public repos on `https://github.com/hkbus`
 
 - PWA web app implements the UI frontend based on the hkbus dataset and realtime ETA feed
 - static dataset is cached in browser (IndexedDB) for data management and queries
-- support many ways to show, filter, search and bookmark routes and stops
+- App UI support many ways to show, filter, search and bookmark routes and stops
+- Users track upcoming buses with real-time ETA (Estimated-Time-Arrival) by stops or routes
 
 ## SDK and ETA access Repo: [hk-bus-eta](https://github.com/hkbus/hk-bus-eta)
 

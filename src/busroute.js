@@ -358,6 +358,7 @@ export function clearRouteState() {
   if (infoSidebar) infoSidebar.classList.add('hidden');
   routeState.activeId = null;
   routeState.nearestStopId = null;
+  routeState.lastStopName = null;
   clearRouteStopMarkers();
   clearPolylines();
   // also clear the handler
@@ -543,7 +544,7 @@ function createRoutePill(route, allRoutes, nearestStopId) {
   return pill;
 }
 
-function updateRoutePopover(routes, nearestStopId) {
+export function updateRoutePopover(routes, nearestStopId) {
   if (!routeState.popover) return;
   routeState.popover.innerHTML = '';
   if (!routes || routes.length === 0) {
@@ -597,13 +598,24 @@ function updateNearestStopSidebar(nearestStop, routes) {
   };
 
   const stopName = getLocName(nearestStop.name);
-  const headerHtml = `
-    <div class="route-sidebar-header">
-      <div class="nearest-stop-sidebar-title">
-        ${stopName}
-      </div>
-    </div>
-  `;
+  routeState.lastStopName = stopName;
+  renderRouteListSidebar(stopName, routes);
+}
+
+export function renderRouteListSidebar(title, routes) {
+  if (!infoSidebar || !hkbusData.data) return;
+
+  const userLang = i18n.userLocale.split('-')[0].toLowerCase();
+  const getLocName = (nameObj) => {
+    if (typeof nameObj !== 'object' || nameObj === null) return nameObj;
+    return (
+      nameObj.zh ||
+      nameObj.tc ||
+      nameObj[userLang] ||
+      nameObj.en ||
+      Object.values(nameObj).join(' ')
+    );
+  };
 
   let contentHtml = '';
   routes.forEach((route) => {
@@ -621,7 +633,13 @@ function updateNearestStopSidebar(nearestStop, routes) {
     `;
   });
 
-  infoTitleContent.innerHTML = headerHtml;
+  infoTitleContent.innerHTML = `
+    <div class="route-sidebar-header">
+      <div class="nearest-stop-sidebar-title">
+        ${title}
+      </div>
+    </div>
+  `;
   infoContent.innerHTML = contentHtml;
   infoSidebar.classList.remove('hidden');
 
@@ -639,10 +657,17 @@ function updateNearestStopSidebar(nearestStop, routes) {
     const isFirst = routeState.activeId === null;
     routeState.activeId = routeId;
     await drawRouteStops(routeId, isFirst);
-    const routesForPopover = hkbusData.getRoutesByStop(
-      routeState.nearestStopId
-    );
-    updateRoutePopover(routesForPopover, routeState.nearestStopId);
+
+    // If we are at a nearest stop, show routes for that stop.
+    // Otherwise (search mode), keep showing the search results in the popover.
+    if (routeState.nearestStopId) {
+      const routesForPopover = hkbusData.getRoutesByStop(
+        routeState.nearestStopId
+      );
+      updateRoutePopover(routesForPopover, routeState.nearestStopId);
+    } else {
+      updateRoutePopover(routes, null);
+    }
   };
   infoContent.addEventListener('click', sidebarClickHandler);
 }
@@ -710,7 +735,7 @@ function updateRouteSidebar(routeId) {
     const stopName = getLocName(stop.name);
     const isNearest = stop.id === routeState.nearestStopId;
     contentHtml += `
-      <div class="route-stop-item ${isNearest ? 'active-landmark' : ''}" data-index="${index}">
+      <div class="route-stop-item ${isNearest ? 'nearest-stop' : ''}" data-index="${index}">
         <div class="route-stop-name">
           <span class="stop-item-index">${index + 1}.</span>
           ${stopName}
@@ -741,10 +766,10 @@ function updateRouteSidebar(routeId) {
 
       // Manually update highlighting
       const currentActive = infoSidebar.querySelector(
-        '.route-stop-item.active-landmark'
+        '.route-stop-item.nearest-stop'
       );
-      if (currentActive) currentActive.classList.remove('active-landmark');
-      item.classList.add('active-landmark');
+      if (currentActive) currentActive.classList.remove('nearest-stop');
+      item.classList.add('nearest-stop');
 
       // Pan map to the selected stop
       mapPanTo(

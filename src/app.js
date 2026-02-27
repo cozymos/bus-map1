@@ -28,7 +28,7 @@ import { settingDialog } from './components.js';
 import { i18n, initi18n, updateTranslation, getGlobeEmoji } from './lion.js';
 
 const translationMap = {
-  // mapping DOM selectors to translation keys
+  // a few manual mapping DOM selectors to translation keys
   '.loading-text': { property: 'textContent', strkey: 'app.loading_text' },
   'input#search-input': {
     property: 'placeholder',
@@ -219,7 +219,6 @@ async function loadMap() {
     if (panorama.getVisible()) {
       searchSideBar.classList.add('hidden');
       infoSidebar.classList.add('hidden');
-      resetUIState();
     } else {
       searchSideBar.classList.remove('hidden');
     }
@@ -381,8 +380,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     addMoreOption('app.show_3d_aerial', () => {
       if (!map) return;
       const center = map.getCenter();
-      let placeName = 'Aerial View';
-      if (routeState.activeId && routeState.lastStopName) {
+      let placeName = i18n.t('landmark.aerial_view');
+      if (routeState.lastStopName) {
         placeName = routeState.lastStopName;
       }
       create3DMapOverlay(center.lat(), center.lng(), placeName);
@@ -494,7 +493,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       );
       if (!isInput) {
         event.preventDefault();
-        busStopsButton.click();
+        pinActionButton.click();
       }
     }
   });
