@@ -285,7 +285,7 @@ function resetUIState() {
 
   // Clear the search input
   if (searchInput) {
-    searchInput.value = '';
+    //searchInput.value = '';
   }
 }
 

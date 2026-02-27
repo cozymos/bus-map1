@@ -516,7 +516,10 @@ function createRoutePill(route, allRoutes, nearestStopId) {
 
   pill.addEventListener('click', async (e) => {
     e.stopPropagation();
-    if (routeState.activeId === route.id) {
+    if (
+      routeState.activeId === route.id &&
+      infoSidebar.querySelector('.route-stop-item')
+    ) {
       // Turn OFF
       routeState.activeId = null;
       clearRouteStopMarkers();

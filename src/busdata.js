@@ -11,6 +11,7 @@ import { fetchJSON } from './utils.js';
 const CACHE_KEY = 'hkbus_data_v1';
 const isBrowser =
   typeof window !== 'undefined' && typeof window.document !== 'undefined';
+const MAX_SEARCH_RESULTS = 100;
 
 async function getBusCache() {
   if (!isBrowser) return null;
@@ -330,6 +331,7 @@ class HKBusData {
     };
 
     for (const [id, route] of Object.entries(this.data.routeList)) {
+      if (results.length >= MAX_SEARCH_RESULTS) break;
       const routeStr = String(route.route);
       if (routeStr.toUpperCase().startsWith(q)) {
         const orig = getName(route.orig);
@@ -356,7 +358,7 @@ class HKBusData {
     if (!q) return [];
 
     const results = [];
-    const seen = new Set();
+    const seenRouteIds = new Set();
 
     const getName = (n) => {
       if (typeof n === 'string') return n;
@@ -372,38 +374,38 @@ class HKBusData {
 
     // 1. Search in Route Origin/Destination
     for (const [id, route] of Object.entries(this.data.routeList)) {
+      if (results.length >= MAX_SEARCH_RESULTS) break;
+      if (seenRouteIds.has(id)) continue;
+
       if (matches(route.orig)) {
         const name = getName(route.orig);
-        const key = `${id}|${name}`;
-        if (!seen.has(key)) {
-          results.push([id, String(route.route), name]);
-          seen.add(key);
-        }
+        results.push([id, String(route.route), name]);
+        seenRouteIds.add(id);
+        continue;
       }
+      if (results.length >= MAX_SEARCH_RESULTS) break;
       if (matches(route.dest)) {
         const name = getName(route.dest);
-        const key = `${id}|${name}`;
-        if (!seen.has(key)) {
-          results.push([id, String(route.route), name]);
-          seen.add(key);
-        }
+        results.push([id, String(route.route), name]);
+        seenRouteIds.add(id);
       }
     }
 
     // 2. Search in Stops
     for (const stop of this.stopsArray) {
+      if (results.length >= MAX_SEARCH_RESULTS) break;
       if (matches(stop.name)) {
         const stopName = getName(stop.name);
         const routeIds = this.stopToRoutes[stop.id];
         if (routeIds) {
           for (const routeId of routeIds) {
+            if (results.length >= MAX_SEARCH_RESULTS) break;
+            if (seenRouteIds.has(routeId)) continue;
+
             const route = this.data.routeList[routeId];
             if (!route) continue;
-            const key = `${routeId}|${stopName}`;
-            if (!seen.has(key)) {
-              results.push([routeId, String(route.route), stopName]);
-              seen.add(key);
-            }
+            results.push([routeId, String(route.route), stopName]);
+            seenRouteIds.add(routeId);
           }
         }
       }
