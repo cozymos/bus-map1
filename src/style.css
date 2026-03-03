@@ -191,22 +191,20 @@ body {
 /* Medium screens */
 @media screen and (min-width: 1024px) {
   #info-sidebar {
-    width: 210px;
+    width: 260px;
+    max-width: none;
   }
 
   #search-input {
-    min-width: 250px;
+    min-width: 260px;
   }
 }
 
 /* Larger screens */
 @media screen and (min-width: 1200px) {
   #info-sidebar {
-    width: 240px;
-  }
-
-  #search-input {
-    min-width: 300px;
+    width: 320px;
+    max-width: none;
   }
 }
 
@@ -219,6 +217,17 @@ body {
   background-color: white;
   z-index: 11;
   flex-shrink: 0;
+}
+
+.info-sidebar-header {
+  padding: 8px;
+  border-bottom: 1px solid #ddd;
+}
+
+.info-sidebar-title {
+  font-size: 16px;
+  font-weight: bold;
+  color: #333;
 }
 
 #info-title-content {
@@ -485,6 +494,10 @@ body {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
+.bus-marker-stop.gmb {
+  border-radius: 50%;
+}
+
 /* On smaller screens, make the bus stop markers slightly larger */
 @media screen and (max-width: 1024px) {
   .bus-marker-stop {
@@ -524,7 +537,6 @@ body {
   pointer-events: auto;
   /* Allow interaction with scrollbar */
   overflow-x: auto;
-  padding: 12px;
   /* Safe zone to prevent accidental map touches */
 
   /* Hide scrollbar but keep functionality */
@@ -537,13 +549,6 @@ body {
   -webkit-mask-image: none;
   mask-image: none;
   cursor: grab;
-}
-
-@media screen and (max-width: 768px) {
-  #route-popover {
-    padding: 24px;
-    /* Larger safe zone on mobile */
-  }
 }
 
 #route-popover::-webkit-scrollbar {
@@ -621,18 +626,6 @@ body {
   /* Keep active pill opaque for emphasis */
   background-color: #ffc107;
   color: white;
-}
-
-/* Route Sidebar */
-.route-sidebar-header {
-  padding: 8px;
-  border-bottom: 1px solid #ddd;
-}
-
-.route-sidebar-title {
-  font-size: 16px;
-  font-weight: bold;
-  color: #333;
 }
 
 .nearest-stop {

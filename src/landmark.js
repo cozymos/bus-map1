@@ -30,7 +30,7 @@ export function initLandmark() {
 /**
  * Display landmarks on the map and in the sidebar
  */
-export async function displayLandmarks(landmark_data, headerTitle) {
+export async function displayLandmarks(landmark_data, headerTitle = null) {
   // Clear and prepare sidebar
   infoContent.innerHTML = '';
   infoTitleContent.innerHTML = '';
@@ -38,8 +38,8 @@ export async function displayLandmarks(landmark_data, headerTitle) {
 
   if (headerTitle) {
     infoTitleContent.innerHTML = `
-      <div class="route-sidebar-header">
-        <div class="nearest-stop-sidebar-title">
+      <div class="info-sidebar-header">
+        <div class="info-sidebar-title">
           ${headerTitle}
         </div>
       </div>
@@ -215,7 +215,7 @@ function setupPlaceInteractions(
   const landmarkNameElement = landmarkElement.querySelector('.landmark-name');
   landmarkNameElement.addEventListener('click', () => {
     routeState.lastStopName = markerView.title;
-    const isNarrowScreen = window.innerWidth <= screenWidthThreshold;
+    const isNarrowScreen = window.innerWidth < screenWidthThreshold;
     infoWindows.forEach((iw) => iw.close());
     if (!isNarrowScreen) {
       infoWindow.open({

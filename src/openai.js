@@ -1,27 +1,8 @@
+import { getConfig, distance_km, isTestMode } from './utils.js';
 import { GetPrompt, GetSystemMessage } from './prompt_utils.js';
-import {
-  getSettings,
-  handleError,
-  getConfig,
-  distance_km,
-  isTestMode,
-} from './utils.js';
 import { getLocationCoord } from './gmap.js';
+import { getOpenaiApiKey } from './app.js';
 import { i18n } from './lion.js';
-
-function getOpenaiApiKey() {
-  if (!window.APP_CONFIG?.OPENAI_API_KEY) {
-    window.APP_CONFIG = window.APP_CONFIG || {};
-    window.APP_CONFIG.OPENAI_API_KEY =
-      import.meta.env?.VITE_OPENAI_API_KEY || getSettings()['OPENAI_API_KEY'];
-
-    if (!window.APP_CONFIG.OPENAI_API_KEY) {
-      handleError('OpenAI API key is not configured');
-    }
-  }
-
-  return window.APP_CONFIG.OPENAI_API_KEY;
-}
 
 async function getModelConfig() {
   const config = await getConfig();

@@ -22,12 +22,14 @@ import {
   renderRouteListSidebar,
   updateRoutePopover,
   clearRouteState,
+  getLocName,
 } from './busroute.js';
 import { hkbusData } from './busdata.js';
 
 // DOM Elements
 const infoSidebar = document.getElementById('info-sidebar');
 const infoContent = document.getElementById('info-content');
+const SEARCH_LANDMARK_MAX_CONTEXT = 75;
 
 // Map instance
 let map;
@@ -54,13 +56,8 @@ export async function searchLandmarks() {
 
     // Build context for LLM
     if (!hkbusData.data) await hkbusData.load();
-    const { context, title } = buildBusRouteContext(
-      lat,
-      lon,
-      locationData,
-      i18n.userLocale
-    );
-    console.debug('Landmark Context:', context);
+    const { context, title } = buildBusRouteContext(lat, lon, locationData);
+    console.debug('AI Context:', context);
 
     let landmarkData = null;
     if (urlParams.has('gpt')) {
@@ -113,13 +110,7 @@ export async function searchLandmarks() {
   }
 }
 
-function buildBusRouteContext(lat, lon, locationData, locale) {
-  const getLocName = (nameObj) => {
-    if (typeof nameObj !== 'object' || nameObj === null) return nameObj;
-    const lang = locale.split('-')[0].toLowerCase();
-    return nameObj[lang] || nameObj.en || Object.values(nameObj)[0];
-  };
-
+function buildBusRouteContext(lat, lon, locationData) {
   // 1. Active Route Context
   if (routeState.activeId && hkbusData.data) {
     const route = hkbusData.data.routeList[routeState.activeId];
@@ -128,21 +119,8 @@ function buildBusRouteContext(lat, lon, locationData, locale) {
       const companies = Object.keys(stopsMap);
       const stops = companies.length ? stopsMap[companies[0]] : [];
 
-      // Sample stops to save tokens (Start, End, and some intermediate waypoints)
-      const sampled = [];
-      const step = Math.max(1, Math.floor(stops.length / 15));
-      for (let i = 0; i < stops.length; i += step) {
-        sampled.push(stops[i]);
-      }
-      // Ensure last stop is included
-      if (
-        stops.length > 0 &&
-        sampled[sampled.length - 1] !== stops[stops.length - 1]
-      ) {
-        sampled.push(stops[stops.length - 1]);
-      }
-
-      const waypoints = sampled
+      const waypoints = stops
+        .slice(0, SEARCH_LANDMARK_MAX_CONTEXT)
         .map((s) => {
           const name = getLocName(s.name);
           return `${name} (${s.location?.lat?.toFixed(3)},${s.location?.lng?.toFixed(3)})`;
@@ -164,8 +142,15 @@ function buildBusRouteContext(lat, lon, locationData, locale) {
     if (stop) {
       const routes = hkbusData.getRoutesByStop(routeState.nearestStopId);
       // limiting routes (to some unique destinations) to save tokens
+      const seenDests = new Set();
       const routeList = routes
-        .slice(0, 15)
+        .filter((r) => {
+          const destName = getLocName(r.dest);
+          if (seenDests.has(destName)) return false;
+          seenDests.add(destName);
+          return true;
+        })
+        .slice(0, SEARCH_LANDMARK_MAX_CONTEXT)
         .map((r) => `${r.route} (to ${getLocName(r.dest)})`)
         .join(', ');
       const stopName = getLocName(stop.name);

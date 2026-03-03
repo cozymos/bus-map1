@@ -276,7 +276,7 @@ document.addEventListener('click', (ev) => {
  * Resets non-map UI elements to a clean initial state.
  * This is called before reloading the map to prevent inconsistent states.
  */
-function resetUIState() {
+function resetUIState(clearAll = false) {
   // Reset bus route state (hides popover, sidebar, clears markers/polylines)
   clearRouteState();
 
@@ -284,8 +284,8 @@ function resetUIState() {
   clearLandMarkers();
 
   // Clear the search input
-  if (searchInput) {
-    //searchInput.value = '';
+  if (clearAll && searchInput) {
+    searchInput.value = '';
   }
 }
 
@@ -305,6 +305,34 @@ export function getGoogleMapsApiKey() {
   }
 
   return window.APP_CONFIG.GOOGLE_MAPS_API_KEY;
+}
+
+export function getOpenaiApiKey() {
+  if (!window.APP_CONFIG?.OPENAI_API_KEY) {
+    window.APP_CONFIG = window.APP_CONFIG || {};
+    window.APP_CONFIG.OPENAI_API_KEY =
+      import.meta.env?.VITE_OPENAI_API_KEY || getSettings()['OPENAI_API_KEY'];
+
+    if (!window.APP_CONFIG.OPENAI_API_KEY) {
+      handleError('OpenAI API key is not configured');
+    }
+  }
+
+  return window.APP_CONFIG.OPENAI_API_KEY;
+}
+
+export function getGeminiApiKey() {
+  if (!window.APP_CONFIG?.GEMINI_API_KEY) {
+    window.APP_CONFIG = window.APP_CONFIG || {};
+    window.APP_CONFIG.GEMINI_API_KEY =
+      import.meta.env?.VITE_GEMINI_API_KEY || getSettings()['GEMINI_API_KEY'];
+
+    if (!window.APP_CONFIG.GEMINI_API_KEY) {
+      console.warn('Gemini API key is not configured');
+    }
+  }
+
+  return window.APP_CONFIG.GEMINI_API_KEY;
 }
 
 // Load Google Maps API dynamically via a script element
@@ -474,12 +502,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       document.activeElement.tagName === 'INPUT' ||
       document.activeElement.tagName === 'TEXTAREA';
     if (isTyping) return;
-
-    if (event.key === '/') {
-      event.preventDefault();
-      searchInput.focus();
-      searchInput.select(); // select all text
-    }
 
     if (event.key === 'Escape') {
       // Hide sidebars and clear route state

@@ -150,28 +150,6 @@ export function validateCoords(lat, lon) {
 }
 
 /**
- * Checks if coordinates are within the predefined Hong Kong bounds.
- * @param {object} coords - An object with lat and (lng or lon) properties.
- * @returns {boolean} - True if coordinates are within bounds.
- */
-export function isWithinHKBounds(coords) {
-  if (!coords) return false;
-  const lat = coords.lat;
-  const lng = coords.lng ?? coords.lon; // Handle both lng and lon
-
-  if (typeof lat !== 'number' || typeof lng !== 'number') {
-    return false;
-  }
-
-  return (
-    lat >= HK_BOUNDS.S &&
-    lat <= HK_BOUNDS.N &&
-    lng >= HK_BOUNDS.W &&
-    lng <= HK_BOUNDS.E
-  );
-}
-
-/**
  * Parse coordinates from URL parameters
  * @returns {Object|null} - Object with lat, lon, and zoom properties or null if invalid
  */
@@ -205,6 +183,28 @@ export function parseMapParamsFromURL() {
   }
 
   return null;
+}
+
+/**
+ * Checks if coordinates are within the predefined Hong Kong bounds.
+ * @param {object} coords - An object with lat and (lng or lon) properties.
+ * @returns {boolean} - True if coordinates are within bounds.
+ */
+export function isWithinHKBounds(coords) {
+  if (!coords) return false;
+  const lat = coords.lat;
+  const lng = coords.lng ?? coords.lon; // Handle both lng and lon
+
+  if (typeof lat !== 'number' || typeof lng !== 'number') {
+    return false;
+  }
+
+  return (
+    lat >= HK_BOUNDS.S &&
+    lat <= HK_BOUNDS.N &&
+    lng >= HK_BOUNDS.W &&
+    lng <= HK_BOUNDS.E
+  );
 }
 
 /**

@@ -220,17 +220,13 @@ export async function searchBusStop() {
         const icon = document.createElement('div');
         icon.className = 'bus-marker-stop';
 
-        let stopName = stop.name;
-        if (typeof stopName === 'object' && stopName !== null) {
-          const userLang = i18n.userLocale.split('-')[0].toLowerCase();
-          stopName =
-            stopName.zh || /// 2mvp: Preset zh for testing
-            stopName.tc ||
-            stopName[userLang] ||
-            stopName.en ||
-            Object.values(stopName).join(' ');
+        // Check if this stop serves GMB (Green Minibus)
+        const operators = hkbusData.stopToOperators[stop.id];
+        if (operators && operators.has('gmb')) {
+          icon.classList.add('gmb');
         }
 
+        const stopName = getLocName(stop.name);
         marker = new AdvancedMarkerElement({
           map: null, // Initially hidden
           position: { lat, lng },
@@ -327,7 +323,7 @@ export async function drawRoute(routeId, clear = true) {
         path,
         geodesic: true,
         strokeColor: '#000000',
-        strokeOpacity: 0.3,
+        strokeOpacity: 0.5,
         strokeWeight: 1,
         icons: [
           {
@@ -361,6 +357,7 @@ export function clearRouteState() {
   routeState.lastStopName = null;
   clearRouteStopMarkers();
   clearPolylines();
+  clearNearestStopMarker();
   // also clear the handler
   if (sidebarClickHandler) {
     infoContent.removeEventListener('click', sidebarClickHandler);
@@ -397,7 +394,7 @@ async function drawRouteStops(routeId, pushState = true) {
         map,
         position: stop.location,
         content: dot,
-        title: stop.name?.zh || stop.name?.en || '',
+        title: getLocName(stop.name),
         zIndex: 120,
       });
       routeState.stopMarkers.push(marker);
@@ -405,8 +402,8 @@ async function drawRouteStops(routeId, pushState = true) {
   }
 
   // Define padding to avoid UI elements overlapping the map view.
-  const padding = { top: 50, bottom: 50, left: 50, right: 50 };
-  const isWideScreen = window.innerWidth >= screenWidthThreshold;
+  const padding = { top: 50, bottom: 50, left: 50, right: 100 };
+  const isWideScreen = window.innerWidth > screenWidthThreshold;
   if (isWideScreen && routeState.popover) {
     padding.top += routeState.popover.offsetHeight;
   }
@@ -566,6 +563,7 @@ export function updateRoutePopover(routes, nearestStopId) {
   // and move up to create vertical safe zone
   const isMobile = window.innerWidth <= screenWidthThreshold;
   const safeZonePadding = isMobile ? 24 : 12;
+  routeState.popover.style.padding = `${safeZonePadding}px`;
   routeState.popover.style.left = searchRect.right + 'px';
   routeState.popover.style.top = searchRect.top - safeZonePadding + 'px';
 
@@ -576,10 +574,25 @@ export function updateRoutePopover(routes, nearestStopId) {
 
   // Create all pill elements and add them
   const fragment = document.createDocumentFragment();
+  let activePill = null;
   routes.forEach((route) => {
-    fragment.appendChild(createRoutePill(route, routes, nearestStopId));
+    const pill = createRoutePill(route, routes, nearestStopId);
+    if (route.id === routeState.activeId) {
+      activePill = pill;
+    }
+    fragment.appendChild(pill);
   });
   routeState.popover.appendChild(fragment);
+
+  if (activePill) {
+    requestAnimationFrame(() => {
+      activePill.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+        inline: 'center',
+      });
+    });
+  }
 
   // Update fade indicators after layout
   requestAnimationFrame(updateScrollIndicators);
@@ -587,18 +600,6 @@ export function updateRoutePopover(routes, nearestStopId) {
 
 function updateNearestStopSidebar(nearestStop, routes) {
   if (!infoSidebar || !hkbusData.data) return;
-
-  const userLang = i18n.userLocale.split('-')[0].toLowerCase();
-  const getLocName = (nameObj) => {
-    if (typeof nameObj !== 'object' || nameObj === null) return nameObj;
-    return (
-      nameObj.zh ||
-      nameObj.tc ||
-      nameObj[userLang] ||
-      nameObj.en ||
-      Object.values(nameObj).join(' ')
-    );
-  };
 
   const stopName = getLocName(nearestStop.name);
   routeState.lastStopName = stopName;
@@ -608,25 +609,13 @@ function updateNearestStopSidebar(nearestStop, routes) {
 export function renderRouteListSidebar(title, routes) {
   if (!infoSidebar || !hkbusData.data) return;
 
-  const userLang = i18n.userLocale.split('-')[0].toLowerCase();
-  const getLocName = (nameObj) => {
-    if (typeof nameObj !== 'object' || nameObj === null) return nameObj;
-    return (
-      nameObj.zh ||
-      nameObj.tc ||
-      nameObj[userLang] ||
-      nameObj.en ||
-      Object.values(nameObj).join(' ')
-    );
-  };
-
   let contentHtml = '';
   routes.forEach((route) => {
     const orig = getLocName(route.orig);
     const dest = getLocName(route.dest);
     contentHtml += `
       <div class="route-stop-item" data-route-id="${route.id}">
-        <div class="route-sidebar-title">
+        <div class="info-sidebar-title">
           ${route.route}
           <span class="route-sidebar-details">
             ${orig} ➔ ${dest}
@@ -637,7 +626,7 @@ export function renderRouteListSidebar(title, routes) {
   });
 
   infoTitleContent.innerHTML = `
-    <div class="route-sidebar-header">
+    <div class="info-sidebar-header">
       <div class="nearest-stop-sidebar-title">
         ${title}
       </div>
@@ -704,24 +693,12 @@ function updateRouteSidebar(routeId) {
   if (companies.length === 0) return;
   const stops = routeStops[companies[0]];
 
-  const userLang = i18n.userLocale.split('-')[0].toLowerCase();
-  const getLocName = (nameObj) => {
-    if (typeof nameObj !== 'object' || nameObj === null) return nameObj;
-    return (
-      nameObj.zh ||
-      nameObj.tc ||
-      nameObj[userLang] ||
-      nameObj.en ||
-      Object.values(nameObj).join(' ')
-    );
-  };
-
   const orig = getLocName(route.orig);
   const dest = getLocName(route.dest);
 
   const headerHtml = `
-    <div class="route-sidebar-header">
-      <div class="route-sidebar-title">
+    <div class="info-sidebar-header">
+      <div class="info-sidebar-title">
         ${route.route}
         <span class="route-sidebar-company">
           ${route.co.join('/').toUpperCase()}
@@ -780,7 +757,30 @@ function updateRouteSidebar(routeId) {
         stop.location.lng,
         map.getZoom() < streetZoom ? streetZoom : null
       );
+
+      // Scroll active pill into view
+      const activePill =
+        routeState.popover?.querySelector('.route-pill.active');
+      if (activePill) {
+        activePill.scrollIntoView({
+          behavior: 'smooth',
+          block: 'nearest',
+          inline: 'center',
+        });
+      }
     }
   };
   infoContent.addEventListener('click', sidebarClickHandler);
+}
+
+export function getLocName(nameObj) {
+  if (typeof nameObj !== 'object' || nameObj === null) return nameObj;
+  const userLang = i18n.userLocale.split('-')[0].toLowerCase();
+
+  if (nameObj[userLang]) return nameObj[userLang];
+  if (userLang === 'zh' && nameObj.tc) return nameObj.tc;
+
+  return (
+    nameObj.zh || nameObj.tc || nameObj.en || Object.values(nameObj).join(' ')
+  );
 }

@@ -7,11 +7,15 @@
  */
 
 import { fetchJSON } from './utils.js';
+import { i18n } from './lion.js';
 
 const CACHE_KEY = 'hkbus_data_v1';
 const isBrowser =
   typeof window !== 'undefined' && typeof window.document !== 'undefined';
-const MAX_SEARCH_RESULTS = 100;
+const SEARCH_QUERY_MAX_RESULTS = 100;
+const SEARCH_CIRCLE_RADIUS_M = 100;
+const MAX_STOPS_ON_CIRCLE = 10;
+const MIN_STOPS_ON_CIRCLE = 2;
 
 async function getBusCache() {
   if (!isBrowser) return null;
@@ -131,9 +135,9 @@ class HKBusData {
   findStopsNear(
     lat,
     lng,
-    radiusMeters = 100,
-    maxResult = 10,
-    minResult = 2,
+    radiusMeters = SEARCH_CIRCLE_RADIUS_M,
+    maxResult = MAX_STOPS_ON_CIRCLE,
+    minResult = MIN_STOPS_ON_CIRCLE,
     operators = onlyBuses
   ) {
     if (!this.data || !this.stopsArray.length) return [];
@@ -324,18 +328,13 @@ class HKBusData {
     if (!q) return [];
 
     const results = [];
-    const getName = (n) => {
-      if (typeof n === 'string') return n;
-      if (!n) return '';
-      return n.en || n.zh || n.tc || Object.values(n)[0] || '';
-    };
 
     for (const [id, route] of Object.entries(this.data.routeList)) {
-      if (results.length >= MAX_SEARCH_RESULTS) break;
+      if (results.length >= SEARCH_QUERY_MAX_RESULTS) break;
       const routeStr = String(route.route);
       if (routeStr.toUpperCase().startsWith(q)) {
-        const orig = getName(route.orig);
-        const dest = getName(route.dest);
+        const orig = getLocalizedName(route.orig);
+        const dest = getLocalizedName(route.dest);
         results.push([id, routeStr, `${orig} ➔ ${dest}`]);
       }
     }
@@ -360,12 +359,6 @@ class HKBusData {
     const results = [];
     const seenRouteIds = new Set();
 
-    const getName = (n) => {
-      if (typeof n === 'string') return n;
-      if (!n) return '';
-      return n.en || n.zh || n.tc || Object.values(n)[0] || '';
-    };
-
     const matches = (n) => {
       if (!n) return false;
       if (typeof n === 'string') return n.toLowerCase().includes(q);
@@ -374,18 +367,18 @@ class HKBusData {
 
     // 1. Search in Route Origin/Destination
     for (const [id, route] of Object.entries(this.data.routeList)) {
-      if (results.length >= MAX_SEARCH_RESULTS) break;
+      if (results.length >= SEARCH_QUERY_MAX_RESULTS) break;
       if (seenRouteIds.has(id)) continue;
 
       if (matches(route.orig)) {
-        const name = getName(route.orig);
+        const name = getLocalizedName(route.orig);
         results.push([id, String(route.route), name]);
         seenRouteIds.add(id);
         continue;
       }
-      if (results.length >= MAX_SEARCH_RESULTS) break;
+      if (results.length >= SEARCH_QUERY_MAX_RESULTS) break;
       if (matches(route.dest)) {
-        const name = getName(route.dest);
+        const name = getLocalizedName(route.dest);
         results.push([id, String(route.route), name]);
         seenRouteIds.add(id);
       }
@@ -393,13 +386,13 @@ class HKBusData {
 
     // 2. Search in Stops
     for (const stop of this.stopsArray) {
-      if (results.length >= MAX_SEARCH_RESULTS) break;
+      if (results.length >= SEARCH_QUERY_MAX_RESULTS) break;
       if (matches(stop.name)) {
-        const stopName = getName(stop.name);
+        const stopName = getLocalizedName(stop.name);
         const routeIds = this.stopToRoutes[stop.id];
         if (routeIds) {
           for (const routeId of routeIds) {
-            if (results.length >= MAX_SEARCH_RESULTS) break;
+            if (results.length >= SEARCH_QUERY_MAX_RESULTS) break;
             if (seenRouteIds.has(routeId)) continue;
 
             const route = this.data.routeList[routeId];
@@ -421,3 +414,11 @@ class HKBusData {
 
 // Instantiate as singleton
 export const hkbusData = new HKBusData();
+
+function getLocalizedName(n) {
+  if (typeof n === 'string') return n;
+  if (!n) return '';
+  const lang = i18n?.userLocale?.split('-')[0]?.toLowerCase() || 'en';
+  if (lang === 'zh' && n.tc) return n.tc;
+  return n[lang] || n.en || n.zh || n.tc || Object.values(n)[0] || '';
+}

@@ -348,6 +348,28 @@ async function runAllTests() {
     return `Validated schema for ${stopIds.length} stops and ${routeIds.length} routes.`;
   });
 
+  await runner.run('Find Longest Route', async () => {
+    const { hkbusData } = await import('./busdata.js');
+    if (!hkbusData.data) await hkbusData.load();
+
+    let maxStops = 0;
+    let longestRoute = null;
+
+    if (hkbusData.data?.routeList) {
+      for (const route of Object.values(hkbusData.data.routeList)) {
+        if (route.seq > maxStops) {
+          maxStops = route.seq;
+          longestRoute = route;
+        }
+      }
+    }
+
+    if (longestRoute) {
+      return `Route ${longestRoute.route} has ${maxStops} stops`;
+    }
+    return { success: false, error: 'No routes found' };
+  });
+
   await runner.run('findStopsNear()', async () => {
     const success = await testFindStopsNear();
     if (!success)
