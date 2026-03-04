@@ -82,7 +82,7 @@ npm run dev
 
 **Enter API keys in the app**
 
-- Open `http://localhost:5000` in your browser.
+- Open `http://localhost:5001` in your browser.
 - Click the gear icon (**⚙️ Settings UI**) in the bottom‑left corner.
 - Fill in `GOOGLE_MAPS_API_KEY`, then close to save.
 - Settings are stored in `localStorage` under `APP_SETTINGS`.

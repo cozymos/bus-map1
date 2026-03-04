@@ -53,6 +53,7 @@
     "location_not_found": "找不到位置",
     "no_results": "沒有搜尋結果",
     "geolocation_not_supported": "不支援地理定位",
-    "unable_to_get_geolocation": "無法取得地理定位"
+    "unable_to_get_geolocation": "無法取得地理定位",
+    "out_of_hk_bounds": "位置超出香港範圍"
   }
 }

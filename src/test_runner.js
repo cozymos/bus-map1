@@ -370,6 +370,31 @@ async function runAllTests() {
     return { success: false, error: 'No routes found' };
   });
 
+  await runner.run('Find Stop with most routes', async () => {
+    const { hkbusData } = await import('./busdata.js');
+    if (!hkbusData.data) await hkbusData.load();
+
+    let maxRoutes = 0;
+    let busiestStopId = null;
+
+    if (hkbusData.stopToRoutes) {
+      for (const [stopId, routes] of Object.entries(hkbusData.stopToRoutes)) {
+        if (routes.length > maxRoutes) {
+          maxRoutes = routes.length;
+          busiestStopId = stopId;
+        }
+      }
+    }
+
+    if (busiestStopId) {
+      const stop = hkbusData.data.stopList[busiestStopId];
+      const { getLocName } = await import('./busroute.js');
+      const stopName = getLocName(stop.name);
+      return `Stop '${stopName}' (${busiestStopId}) has ${maxRoutes} routes`;
+    }
+    return { success: false, error: 'No stop-to-route mapping found' };
+  });
+
   await runner.run('findStopsNear()', async () => {
     const success = await testFindStopsNear();
     if (!success)

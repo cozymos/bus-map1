@@ -41,7 +41,7 @@ const pinActionButton = document.getElementById('pin-button');
 const busStopsButton = document.getElementById('bus-button');
 const settingsButton = document.getElementById('settings-button');
 const localeButton = document.getElementById('locale-button');
-const searchSideBar = document.getElementById('search-bar-container');
+const searchSideBar = document.getElementById('search-sidebar');
 const searchInput = document.getElementById('search-input');
 const searchButton = document.getElementById('search-button');
 const infoSidebar = document.getElementById('info-sidebar');
@@ -427,6 +427,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   searchButton.addEventListener('click', () => {
     if (searchInput.style.display === 'none') {
       searchInput.style.display = '';
+      searchSideBar.style.width = '';
+      searchSideBar.style.minWidth = '';
       searchInput.focus();
       return;
     }
@@ -492,6 +494,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       localeButton.textContent = getGlobeEmoji(i18n.userLocale);
       await applyTranslations();
       settingDialog.renderTable();
+      resetUIState();
     });
   }
 
@@ -502,6 +505,17 @@ document.addEventListener('DOMContentLoaded', async () => {
       document.activeElement.tagName === 'INPUT' ||
       document.activeElement.tagName === 'TEXTAREA';
     if (isTyping) return;
+
+    if (event.key === '/') {
+      event.preventDefault();
+      if (searchInput.style.display === 'none') {
+        searchInput.style.display = '';
+        searchSideBar.style.width = '';
+        searchSideBar.style.minWidth = '';
+      }
+      searchInput.focus();
+      searchInput.select(); // select all text
+    }
 
     if (event.key === 'Escape') {
       // Hide sidebars and clear route state

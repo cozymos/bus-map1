@@ -225,7 +225,7 @@ export async function PlaceTextSearch(
     }
 
     const data = await response.json();
-    // console.debug('Text Search Resp:', data);
+    console.debug('Text Search Resp:', data);
 
     // Check if we need to make a new request with a different language code
     if (

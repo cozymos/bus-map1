@@ -10,7 +10,7 @@ import {
 } from './utils.js';
 
 // DOM Elements
-const searchSideBar = document.getElementById('search-bar-container');
+const searchSideBar = document.getElementById('search-sidebar');
 const searchInput = document.getElementById('search-input');
 const infoSidebar = document.getElementById('info-sidebar');
 const infoTitleContent = document.getElementById('info-title-content');
@@ -27,6 +27,7 @@ export const routeState = {
   isDragging: false,
 };
 export const streetZoom = 15;
+export const polylineOpacity = 0.7;
 
 let map;
 let searchCircle = null;
@@ -323,7 +324,7 @@ export async function drawRoute(routeId, clear = true) {
         path,
         geodesic: true,
         strokeColor: '#000000',
-        strokeOpacity: 0.5,
+        strokeOpacity: polylineOpacity,
         strokeWeight: 1,
         icons: [
           {
@@ -552,20 +553,23 @@ export function updateRoutePopover(routes, nearestStopId) {
     return;
   }
 
-  if (searchInput) searchInput.style.display = 'none';
+  if (!searchSideBar) return;
+  if (searchInput) {
+    searchInput.style.display = 'none';
+    searchSideBar.style.width = 'auto';
+    searchSideBar.style.minWidth = 'auto';
+  }
+
   const searchRect = searchSideBar.getBoundingClientRect();
   if (searchSideBar.classList.contains('hidden') || searchRect.width === 0) {
     routeState.popover.style.display = 'none';
     return;
   }
 
-  // Position with safe zone: align left to sidebar edge (padding creates the visual gap)
-  // and move up to create vertical safe zone
-  const isMobile = window.innerWidth <= screenWidthThreshold;
-  const safeZonePadding = isMobile ? 24 : 12;
-  routeState.popover.style.padding = `${safeZonePadding}px`;
+  // Position popover next to sidebar
+  const padding = 12; // Match CSS padding
   routeState.popover.style.left = searchRect.right + 'px';
-  routeState.popover.style.top = searchRect.top - safeZonePadding + 'px';
+  routeState.popover.style.top = searchRect.top - padding + 'px';
 
   // Constrain width to fit on screen (extending to right edge)
   const availableWidth = window.innerWidth - searchRect.right;

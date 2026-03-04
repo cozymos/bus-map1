@@ -53,6 +53,7 @@
     "location_not_found": "Location not found",
     "no_results": "No search results",
     "geolocation_not_supported": "Geolocation not supported",
-    "unable_to_get_geolocation": "Unable to get Geolocation"
+    "unable_to_get_geolocation": "Unable to get Geolocation",
+    "out_of_hk_bounds": "Location is outside Hong Kong bounds"
   }
 }

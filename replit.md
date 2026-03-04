@@ -7,10 +7,10 @@ A Vite-based frontend application for viewing Hong Kong bus routes on an interac
 - **Framework**: Vanilla JS with Vite bundler
 - **Entry point**: `index.html` → `src/app.js`
 - **Build output**: `dist/`
-- **Dev server port**: 5000 (host: 0.0.0.0)
+- **Dev server port**: 5001 (host: 0.0.0.0)
 
 ### Key Files
-- `vite.config.js` - Vite configuration (port 5000, allowedHosts: true)
+- `vite.config.js` - Vite configuration (port 5001, allowedHosts: true)
 - `src/app.js` - Main application logic
 - `src/gmap.js` - Google Maps integration
 - `src/openai.js` - OpenAI API integration
@@ -22,7 +22,7 @@ A Vite-based frontend application for viewing Hong Kong bus routes on an interac
 - `public/locales/en.json` - English translations
 
 ## Recent Changes
-- 2026-02-10: Initial Replit setup. Changed dev server port from 5001 to 5000. Configured static deployment with `npm run build`.
+- 2026-02-10: Initial Replit setup. Changed dev server port to 5001. Configured static deployment with `npm run build`.
 
 ## User Preferences
 (None recorded yet)

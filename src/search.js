@@ -49,6 +49,10 @@ export async function searchLandmarks() {
     setLoading(true);
 
     const center = getMapCenter(map);
+    if (!isWithinHKBounds(center)) {
+      handleError(i18n.t('errors.out_of_hk_bounds'));
+      return;
+    }
     const lat = normalizeCoordValue(center.lat);
     const lon = normalizeCoordValue(center.lng);
     const urlParams = new URLSearchParams(window.location.search);
@@ -230,7 +234,7 @@ export async function searchText(query) {
         mapPanTo(landmark.lat, landmark.lon, defaultZoom);
         updateUrlParameters(map, true);
       } else {
-        handleError(i18n.t('errors.location_not_found'));
+        handleError(i18n.t('errors.out_of_hk_bounds'));
       }
     } else {
       handleError(i18n.t('errors.location_not_found'));

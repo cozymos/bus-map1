@@ -130,7 +130,7 @@ body {
 }
 
 /* Search Bar */
-#search-bar-container {
+#search-sidebar {
   position: absolute;
   top: 10px;
   left: 10px;
@@ -190,13 +190,10 @@ body {
 
 /* Medium screens */
 @media screen and (min-width: 1024px) {
-  #info-sidebar {
+  #info-sidebar,
+  #search-sidebar {
     width: 260px;
     max-width: none;
-  }
-
-  #search-input {
-    min-width: 260px;
   }
 }
 
@@ -509,8 +506,8 @@ body {
 .bus-marker-nearest {
   width: 20px;
   height: 20px;
-  background-color: #f66a5b;
-  border: 2px solid white;
+  background-color: transparent;
+  border: 4px solid #f66a5b;
   border-radius: 50%;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
@@ -537,7 +534,7 @@ body {
   pointer-events: auto;
   /* Allow interaction with scrollbar */
   overflow-x: auto;
-  /* Safe zone to prevent accidental map touches */
+  padding: 12px;
 
   /* Hide scrollbar but keep functionality */
   scrollbar-width: none;
