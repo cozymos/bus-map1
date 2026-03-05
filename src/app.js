@@ -241,8 +241,9 @@ function updatePinIndicator() {
  * Adds a new option to More-menu dropdown.
  * @param {string} strkey - The translation key for this label.
  * @param {Function} handler - Function called when the option is clicked.
+ * @param {boolean} setpin - Whether to set this as the active pin option.
  */
-export function addMoreOption(strkey, handler) {
+export function addMoreOption(strkey, handler, setpin = false) {
   const item = document.createElement('div');
   item.className = 'dropdown-item';
   item.setAttribute('data-i18n-text', strkey);
@@ -255,7 +256,7 @@ export function addMoreOption(strkey, handler) {
   });
   if (moreMenu) moreMenu.appendChild(item);
 
-  if (!activePinHandler) {
+  if (!activePinHandler || setpin) {
     activePinKey = strkey;
     activePinHandler = handler;
   }
@@ -345,7 +346,7 @@ function loadGoogleMapsAPI() {
 
   window.initMap = initMap;
   console.log(
-    `${import.meta.env?.MODE || 'server'} mode: Google Maps loading...`
+    `${import.meta.env.MODE || 'server'} mode: Google Maps loading...`
   );
   const script = document.createElement('script');
   /// 2mvp: Preset map language to Chinese (Hong Kong) and region to HK
@@ -366,12 +367,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Build the "More" menu options once on startup.
   if (moreMenu) {
-    addMoreOption('app.search_landmarks', searchLandmarks);
-
-    addMoreOption('app.toggle_details', async () => {
-      myMapId = myMapId === mapId1 ? mapId2 : mapId1;
-      await loadMap();
+    addMoreOption('app.user_location', async () => {
+      await showUserLocation();
     });
+
+    addMoreOption(
+      'app.toggle_details',
+      async () => {
+        myMapId = myMapId === mapId1 ? mapId2 : mapId1;
+        await loadMap();
+      },
+      import.meta.env.DEV
+    );
 
     addMoreOption('app.toggle_traffic', () => {
       if (!map) return;
@@ -397,6 +404,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
 
+    addMoreOption('app.search_landmarks', searchLandmarks);
+
     addMoreOption('app.show_street_view', () => {
       if (!map) return;
       const panorama = map.getStreetView();
@@ -417,9 +426,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       window.history.pushState({ overlay: '3d-aerial' }, '');
     });
 
-    addMoreOption('app.user_location', async () => {
-      await showUserLocation();
-    });
     updatePinIndicator();
   }
 

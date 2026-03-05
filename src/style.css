@@ -135,6 +135,7 @@ body {
   top: 10px;
   left: 10px;
   z-index: 10;
+  width: 200px;
 }
 
 #search-bar {
@@ -151,6 +152,7 @@ body {
   border: none;
   font-size: 16px;
   outline: none;
+  min-width: 0;
 }
 
 #search-button {
@@ -175,7 +177,7 @@ body {
 #info-sidebar {
   width: 30vw;
   min-width: 150px;
-  max-width: 210px;
+  max-width: 200px;
   position: absolute;
   top: 50px;
   left: 10px;
