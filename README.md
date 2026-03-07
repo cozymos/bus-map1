@@ -1,11 +1,11 @@
 # Mini HKBus Map
 
-A minimalist Google Maps app on search, discovery and exploration with Hong Kong public transportation.
+A minimalist Google Maps app on discovery and search with Hong Kong public transportation.
 
 ### Technical Highlights
 
 - **Frontend:** Client-only PWA, Map integration, vanilla JavaScript, browser-side caching & testing.
-- **HK Public Transport:** Offline-first bus stop and route lookup based on the `hkbus` dataset.
+- **HK Public Transport:** Offline-first bus stop and route lookup built on the [`hkbus dataset`](https://github.com/hkbus/hk-bus-crawling) by [chunlaw](https://github.com/chunlaw).
 - **AI-powered:** LLM prompting for location discovery, generates descriptions, adapts local language.
 - **Photorealistic 3D Maps**: Google Earth-style 3D navigation + Street View for bus stops exploration.
 - **Auto Translation:** Support JSON resource, string changes detection, local TM (Translation Memory).
@@ -27,7 +27,7 @@ src/
 ├── search.js       # Location, landmark search and display
 ├── landmark.js     # Landmark sidebar, markers, and 3D overlays
 ├── gmap.js         # Google Maps API wrappers
-├── gemini.js       # Gemini LLM
+├── gemini.js       # Gemini LLM grounded with Google Maps
 ├── openai.js       # OpenAI LLM
 ├── prompts.js      # Prompting templates
 ├── lion.js         # i18n/L10n with auto-translations

@@ -441,6 +441,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     const query = searchInput.value.trim();
     if (query) {
       searchText(query);
+    } else {
+      searchInput.style.display = 'none';
+      searchSideBar.style.width = 'auto';
+      searchSideBar.style.minWidth = 'auto';
     }
   });
 

@@ -54,18 +54,11 @@ export function initBusRoute(mapInstance) {
       isThrottled = false;
     }, 50); // Throttle to once every 50ms
 
-    const center = map.getCenter();
+    const center = getMapCenter(map);
     if (centerMarker) {
       centerMarker.position = center;
     }
-    if (searchCircle) {
-      if (routeState.activeId) {
-        searchCircle.setMap(null);
-      } else {
-        searchCircle.setCenter(center);
-        searchCircle.setMap(map);
-      }
-    }
+    updateSearchCircle();
   });
 
   // Use 'idle' for heavy operations like searching for bus stops
@@ -84,6 +77,28 @@ export function initBusRoute(mapInstance) {
       }
     }, 300); // Wait 300ms after the map stops moving
   });
+}
+
+/**
+ * Updates the search circle's position, radius, and visibility based on map state.
+ * @returns {boolean} True if the circle is visible.
+ */
+function updateSearchCircle() {
+  if (!searchCircle || !map) return false;
+
+  const center = getMapCenter(map);
+  const zoom = map.getZoom();
+  const isVisible =
+    zoom >= streetZoom && !routeState.activeId && isWithinHKBounds(center);
+
+  if (isVisible) {
+    searchCircle.setCenter(center);
+    searchCircle.setRadius(getBusStopSearchRadius(zoom));
+    if (searchCircle.getMap() !== map) searchCircle.setMap(map);
+  } else {
+    if (searchCircle.getMap()) searchCircle.setMap(null);
+  }
+  return isVisible;
 }
 
 function getBusStopSearchRadius(zoom) {
@@ -127,24 +142,13 @@ async function initSearchCircle() {
   searchCircle = new Circle({
     strokeWeight: 0,
     fillOpacity: 0.05,
-    map: map.getZoom() >= streetZoom ? map : null,
-    center: map.getCenter(),
-    radius: getBusStopSearchRadius(map.getZoom()),
     clickable: false,
   });
 
+  updateSearchCircle();
+
   map.addListener('zoom_changed', () => {
-    if (searchCircle) {
-      const zoom = map.getZoom();
-      searchCircle.setRadius(getBusStopSearchRadius(zoom));
-      if (zoom < streetZoom || routeState.activeId) {
-        searchCircle.setMap(null);
-      } else {
-        const center = map.getCenter();
-        searchCircle.setCenter(center);
-        searchCircle.setMap(map);
-      }
-    }
+    updateSearchCircle();
   });
 }
 
@@ -159,28 +163,12 @@ export async function searchBusStop() {
 
   updateUrlParameters(map);
 
-  const center = getMapCenter(map);
-  const zoom = map.getZoom();
-
-  // 1. Check if map center is in Hong Kong
-  if (!isWithinHKBounds(center)) {
-    console.debug('Search Bus Stop: Out of HK bounds', center);
-    if (searchCircle) searchCircle.setMap(null);
+  if (!updateSearchCircle()) {
     clearRouteState();
     return;
   }
 
-  // 2. Check if map zoom is street level
-  if (zoom < streetZoom) {
-    console.debug(`Search Bus Stop: Zoom level too low (<${streetZoom})`, zoom);
-    if (searchCircle) searchCircle.setMap(null);
-    clearRouteState();
-    return;
-  }
-
-  if (searchCircle) searchCircle.setMap(map);
-
-  // 3. Return a list of stop by hkbus.js/getStopsNear()
+  // 1. Fetch nearby bus stops using spatial query
   if (!hkbusData.data) {
     await hkbusData.load();
     if (!hkbusData.data) {
@@ -189,11 +177,13 @@ export async function searchBusStop() {
     }
   }
 
+  const center = getMapCenter(map);
+  const zoom = map.getZoom();
   const nearStops_m = getBusStopSearchRadius(zoom);
   const stops = hkbusData.findStopsNear(center.lat, center.lng, nearStops_m);
   console.debug(`Search Bus Stop: Found ${stops.length} stops`);
 
-  // 4. Plot bus stops as marker in small icons
+  // 2. Render bus stop markers on the map
   const { AdvancedMarkerElement } = await google.maps.importLibrary('marker');
   const newVisibleStopIds = new Set(stops.map((s) => s.id));
 
@@ -244,7 +234,7 @@ export async function searchBusStop() {
     }
   }
 
-  // 5. Draw routes for nearest stop
+  // 3. Identify the nearest stop and update UI
   let nearest_m = 10;
   if (zoom <= streetZoom + 1) {
     nearest_m = 40;
