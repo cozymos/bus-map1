@@ -25,6 +25,8 @@ export const routeState = {
   programmaticPan: false,
   nearestStopId: null,
   isDragging: false,
+  nearbyStops: [],
+  currentStopIndex: -1,
 };
 export const streetZoom = 15;
 export const polylineOpacity = 0.7;
@@ -142,14 +144,31 @@ async function initSearchCircle() {
   searchCircle = new Circle({
     strokeWeight: 0,
     fillOpacity: 0.05,
-    clickable: false,
+    clickable: true,
   });
+
+  searchCircle.addListener('click', cycleNextStop);
 
   updateSearchCircle();
 
   map.addListener('zoom_changed', () => {
     updateSearchCircle();
   });
+}
+
+async function cycleNextStop() {
+  if (routeState.activeId) return; // Do not cycle if inspecting a specific route
+  if (!routeState.nearbyStops || routeState.nearbyStops.length === 0) return;
+
+  routeState.currentStopIndex++;
+  if (routeState.currentStopIndex >= routeState.nearbyStops.length) {
+    routeState.currentStopIndex = 0;
+  }
+
+  const nextStop = routeState.nearbyStops[routeState.currentStopIndex];
+  if (nextStop) {
+    await selectNearbyStop(nextStop);
+  }
 }
 
 export async function searchBusStop() {
@@ -242,42 +261,59 @@ export async function searchBusStop() {
     nearest_m = 20;
   }
   const nearest = hkbusData.findNearestStop(center.lat, center.lng, nearest_m);
+
+  routeState.nearbyStops = stops;
+  routeState.currentStopIndex = -1;
+
   if (nearest) {
-    // Optimization: Only redraw polylines if the nearest stop has changed
-    const hasNearestStopChanged = nearest.id !== routeState.nearestStopId;
-    routeState.nearestStopId = nearest.id; // Update the state regardless
-
-    // Remove previous sticky marker
-    clearNearestStopMarker();
-
-    // Draw larger marker for nearest stop
-    const nearestIcon = document.createElement('div');
-    nearestIcon.className = 'bus-marker-nearest';
-    nearestStopMarker = new AdvancedMarkerElement({
-      map,
-      position: nearest.location,
-      content: nearestIcon,
-      title: 'Nearest Stop',
-      zIndex: 100,
-    });
-
-    const routes = hkbusData.getRoutesByStop(nearest.id);
-    const isRouteActive =
-      routeState.activeId && routes.some((r) => r.id === routeState.activeId);
-
-    if (hasNearestStopChanged && !isRouteActive) {
-      clearRouteStopMarkers();
-      // If no route is active, show the nearest stop sidebar
-      if (!routeState.activeId) {
-        updateNearestStopSidebar(nearest, routes);
-      }
+    routeState.currentStopIndex = stops.findIndex((s) => s.id === nearest.id);
+    if (routeState.currentStopIndex === -1) {
+      routeState.nearbyStops.unshift(nearest);
+      routeState.currentStopIndex = 0;
     }
-    updateRoutePopover(routes, nearest.id);
+    await selectNearbyStop(nearest);
   } else {
     clearNearestStopMarker();
     routeState.nearestStopId = null; // Reset when no stop is near
-    clearRouteState();
+    if (routeState.popover) routeState.popover.style.display = 'none';
+    if (infoSidebar) infoSidebar.classList.add('hidden');
   }
+}
+
+async function selectNearbyStop(stop) {
+  if (!stop) return;
+  const { AdvancedMarkerElement } = await google.maps.importLibrary('marker');
+
+  // Optimization: Only redraw polylines if the nearest stop has changed
+  const hasNearestStopChanged = stop.id !== routeState.nearestStopId;
+  routeState.nearestStopId = stop.id; // Update the state regardless
+
+  // Remove previous sticky marker
+  clearNearestStopMarker();
+
+  // Draw larger marker for nearest stop
+  const nearestIcon = document.createElement('div');
+  nearestIcon.className = 'bus-marker-nearest';
+  nearestStopMarker = new AdvancedMarkerElement({
+    map,
+    position: stop.location,
+    content: nearestIcon,
+    title: 'Nearest Stop',
+    zIndex: 100,
+  });
+
+  const routes = hkbusData.getRoutesByStop(stop.id);
+  const isRouteActive =
+    routeState.activeId && routes.some((r) => r.id === routeState.activeId);
+
+  if (hasNearestStopChanged && !isRouteActive) {
+    clearRouteStopMarkers();
+    // If no route is active, show the nearest stop sidebar
+    if (!routeState.activeId) {
+      updateNearestStopSidebar(stop, routes);
+    }
+  }
+  updateRoutePopover(routes, stop.id);
 }
 
 function clearPolylines() {
@@ -346,6 +382,8 @@ export function clearRouteState() {
   routeState.activeId = null;
   routeState.nearestStopId = null;
   routeState.lastStopName = null;
+  routeState.nearbyStops = [];
+  routeState.currentStopIndex = -1;
   clearRouteStopMarkers();
   clearPolylines();
   clearNearestStopMarker();
@@ -356,6 +394,10 @@ export function clearRouteState() {
   }
 
   // Clear caches to ensure a clean state on map reload
+  for (const stopId of visibleBusMarkers) {
+    const marker = markerCache.get(stopId);
+    if (marker) marker.map = null;
+  }
   markerCache.clear();
   visibleBusMarkers.clear();
 }
