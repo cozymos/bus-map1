@@ -642,7 +642,7 @@ function updateNearestStopSidebar(nearestStop, routes) {
   renderRouteListSidebar(stopName, routes);
 }
 
-export function renderRouteListSidebar(title, routes) {
+export function renderRouteListSidebar(title, routes, options = {}) {
   if (!infoSidebar || !hkbusData.data) return;
 
   let contentHtml = '';
@@ -685,6 +685,9 @@ export function renderRouteListSidebar(title, routes) {
     const isFirst = routeState.activeId === null;
     routeState.activeId = routeId;
     await drawRouteStops(routeId, isFirst);
+    if (typeof options.onRouteSelect === 'function') {
+      options.onRouteSelect(routeId);
+    }
 
     // If we are at a nearest stop, show routes for that stop.
     // Otherwise (search mode), keep showing the search results in the popover.

@@ -4,6 +4,8 @@ import {
   searchLandmarks,
   showUserLocation,
   searchText,
+  showSearchHistoryDropdown,
+  hideSearchHistoryDropdown,
 } from './search.js';
 import {
   initBusRoute,
@@ -442,6 +444,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (query) {
       searchText(query);
     } else {
+      hideSearchHistoryDropdown();
       searchInput.style.display = 'none';
       searchSideBar.style.width = 'auto';
       searchSideBar.style.minWidth = 'auto';
@@ -461,6 +464,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     resetUIState();
     infoSidebar.classList.add('hidden');
     e.target.select();
+    showSearchHistoryDropdown();
   });
 
   infoCloseButton.addEventListener('click', () => {
@@ -530,6 +534,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (event.key === 'Escape') {
       // Hide sidebars and clear route state
       resetUIState();
+      hideSearchHistoryDropdown();
     }
 
     if (event.code === 'Space') {

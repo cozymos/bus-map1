@@ -27,12 +27,19 @@ import {
 import { hkbusData } from './busdata.js';
 
 // DOM Elements
+const searchSidebar = document.getElementById('search-sidebar');
+const searchInput = document.getElementById('search-input');
 const infoSidebar = document.getElementById('info-sidebar');
 const infoContent = document.getElementById('info-content');
 const SEARCH_LANDMARK_MAX_CONTEXT = 75;
+const SEARCH_HISTORY_LIMIT = 10;
+const SEARCH_HISTORY_STORAGE_KEY = 'bus_search_history';
 
 // Map instance
 let map;
+let searchHistoryDropdown = null;
+let hasBoundSearchHistory = false;
+let searchHistory = loadSearchHistory();
 
 export function initSearch() {
   // Get map instance from global scope (set in map.js)
@@ -40,6 +47,144 @@ export function initSearch() {
   if (!map) {
     console.error('Map instance not found. Please initialize the map first.');
     return;
+  }
+
+  initSearchHistoryDropdown();
+}
+
+function initSearchHistoryDropdown() {
+  if (!searchSidebar || !searchInput) return;
+
+  if (!searchHistoryDropdown) {
+    searchHistoryDropdown = document.createElement('div');
+    searchHistoryDropdown.id = 'search-history-dropdown';
+    searchHistoryDropdown.classList.add('hidden');
+    searchSidebar.appendChild(searchHistoryDropdown);
+  }
+
+  if (hasBoundSearchHistory) return;
+  hasBoundSearchHistory = true;
+
+  searchInput.addEventListener('focus', () => {
+    showSearchHistoryDropdown();
+  });
+
+  searchInput.addEventListener('input', () => {
+    hideSearchHistoryDropdown();
+  });
+
+  searchInput.addEventListener('blur', () => {
+    window.setTimeout(() => {
+      hideSearchHistoryDropdown();
+    }, 150);
+  });
+
+  document.addEventListener('click', (event) => {
+    if (!searchSidebar.contains(event.target)) {
+      hideSearchHistoryDropdown();
+    }
+  });
+
+  searchHistoryDropdown.addEventListener('mousedown', (event) => {
+    const item = event.target.closest('.search-history-item');
+    if (!item?.dataset.query) return;
+
+    event.preventDefault();
+    const query = item.dataset.query;
+    searchInput.value = query;
+    hideSearchHistoryDropdown();
+    searchText(query);
+  });
+}
+
+function addSearchHistory(query) {
+  const normalizedQuery = String(query || '').trim();
+  if (!normalizedQuery) return;
+
+  const existingIndex = searchHistory.findIndex(
+    (item) => item.toLowerCase() === normalizedQuery.toLowerCase()
+  );
+  if (existingIndex !== -1) {
+    searchHistory.splice(existingIndex, 1);
+  }
+
+  searchHistory.unshift(normalizedQuery);
+  searchHistory.splice(SEARCH_HISTORY_LIMIT);
+  persistSearchHistory();
+}
+
+function renderSearchHistoryDropdown() {
+  if (!searchHistoryDropdown) return;
+
+  if (searchHistory.length === 0) {
+    searchHistoryDropdown.innerHTML = '';
+    searchHistoryDropdown.classList.add('hidden');
+    return;
+  }
+
+  searchHistoryDropdown.innerHTML = searchHistory
+    .map(
+      (query) => `
+        <button type="button" class="search-history-item" data-query="${escapeHistoryAttr(query)}">
+          ${escapeHistoryText(query)}
+        </button>
+      `
+    )
+    .join('');
+}
+
+function escapeHistoryText(text) {
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function escapeHistoryAttr(text) {
+  return escapeHistoryText(text).replace(/"/g, '&quot;');
+}
+
+export function showSearchHistoryDropdown() {
+  if (!searchInput || document.activeElement !== searchInput) return;
+
+  renderSearchHistoryDropdown();
+  if (searchHistory.length > 0 && searchHistoryDropdown) {
+    searchHistoryDropdown.classList.remove('hidden');
+  }
+}
+
+export function hideSearchHistoryDropdown() {
+  if (searchHistoryDropdown) {
+    searchHistoryDropdown.classList.add('hidden');
+  }
+}
+
+function loadSearchHistory() {
+  try {
+    const raw = localStorage.getItem(SEARCH_HISTORY_STORAGE_KEY);
+    if (!raw) return [];
+
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed
+      .map((item) => String(item || '').trim())
+      .filter(Boolean)
+      .slice(0, SEARCH_HISTORY_LIMIT);
+  } catch (error) {
+    console.warn('Failed to load search history:', error);
+    return [];
+  }
+}
+
+function persistSearchHistory() {
+  try {
+    localStorage.setItem(
+      SEARCH_HISTORY_STORAGE_KEY,
+      JSON.stringify(searchHistory)
+    );
+  } catch (error) {
+    console.warn('Failed to persist search history:', error);
   }
 }
 
@@ -182,6 +327,7 @@ export async function searchText(query) {
       return;
     }
 
+    hideSearchHistoryDropdown();
     infoSidebar.classList.add('hidden');
     infoContent.innerHTML = '';
     clearLandMarkers();
@@ -197,7 +343,9 @@ export async function searchText(query) {
         ...hkbusData.data.routeList[id],
       }));
       const title = `${i18n.t('app.search_route')}: ${query}`;
-      renderRouteListSidebar(title, routes);
+      renderRouteListSidebar(title, routes, {
+        onRouteSelect: () => addSearchHistory(query),
+      });
       updateRoutePopover(routes, null);
       return;
     }
@@ -212,7 +360,9 @@ export async function searchText(query) {
       }));
       // Filter duplicates if any (though searchStopByName handles unique route IDs)
       const title = `${i18n.t('app.search_stop')}: ${query}`;
-      renderRouteListSidebar(title, routes);
+      renderRouteListSidebar(title, routes, {
+        onRouteSelect: () => addSearchHistory(query),
+      });
       updateRoutePopover(routes, null);
       return;
     }

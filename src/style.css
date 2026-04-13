@@ -173,6 +173,37 @@ body {
   background-color: #e0e0e0;
 }
 
+#search-history-dropdown {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  background-color: rgba(255, 255, 255, 0.96);
+  border-radius: 4px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+
+.search-history-item {
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  font-size: 14px;
+  color: #333;
+  cursor: pointer;
+}
+
+.search-history-item:hover,
+.search-history-item:focus-visible {
+  background-color: #f5f5f5;
+  outline: none;
+}
+
+.search-history-item + .search-history-item {
+  border-top: 1px solid #f0f0f0;
+}
+
 /* Landmarks Sidebar */
 #info-sidebar {
   width: 30vw;

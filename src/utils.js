@@ -1,4 +1,5 @@
-export const SETTINGS_KEY = 'APP_SETTINGS';
+export const SETTINGS_KEY = 'BUS_SETTINGS';
+const LEGACY_SETTINGS_KEY = 'APP_SETTINGS';
 export const screenWidthThreshold = 768; // The screen width below which is narrow
 export const EARTH_RADIUS_KM = 6371; // Earth's mean radius
 export const HK_BOUNDS = {
@@ -10,7 +11,19 @@ export const HK_BOUNDS = {
 
 export function getSettings() {
   try {
-    return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {};
+    let rawSettings = localStorage.getItem(SETTINGS_KEY);
+
+    // One-time migration for older saved settings.
+    if (!rawSettings) {
+      const legacySettings = localStorage.getItem(LEGACY_SETTINGS_KEY);
+      if (legacySettings) {
+        localStorage.setItem(SETTINGS_KEY, legacySettings);
+        localStorage.removeItem(LEGACY_SETTINGS_KEY);
+        rawSettings = legacySettings;
+      }
+    }
+
+    return JSON.parse(rawSettings) || {};
   } catch (error) {
     console.error(`Error getting ${SETTINGS_KEY}:`, error);
     return {};
