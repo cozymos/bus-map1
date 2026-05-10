@@ -406,7 +406,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
 
-    addMoreOption('app.search_landmarks', searchLandmarks);
+    addMoreOption('app.Minimax_landmarks', () => {
+      searchLandmarks("gpt");
+    });
+
+    addMoreOption('app.Gemini_landmarks', () => {
+      searchLandmarks("gem");
+    });
 
     addMoreOption('app.show_street_view', () => {
       if (!map) return;

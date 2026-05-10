@@ -1,59 +1,60 @@
 {
-  "app": {
-    "loading_text": "載入中 …",
-    "search_landmarks": "AI 地標",
-    "search_placeholder": "搜尋路線或位置…",
-    "search_route": "搜尋路線",
-    "search_stop": "搜尋站點",
-    "user_location": "尋找我的位置",
-    "toggle_details": "切換詳情",
-    "toggle_traffic": "切換交通",
-    "toggle_transit": "切換公交",
-    "show_street_view": "顯示街景",
-    "show_3d_aerial": "顯示 3D 航拍"
-  },
-  "Settings": {
-    "GOOGLE_MAPS_API_KEY": "Google 地圖 API 密鑰",
-    "OPENAI_API_KEY": "OpenAI API 密鑰"
-  },
-  "SettingDialog": {
-    "settings_title": "設定",
-    "new_setting_prompt": "輸入新設定的名稱：",
-    "duplicate_key_alert": "此設定鍵已存在。",
-    "delete_confirm": "你確定要刪除 \"{key}\" 設定嗎？"
-  },
-  "landmark": {
-    "aerial_view": "航拍圖",
-    "near_route": "附近路線：",
-    "near_stop": "附近站點：",
-    "overlay": {
-      "load_failed_title": "3D 地圖載入失敗",
-      "load_failed_description": "Google 3D 地圖視圖無法初始化。",
-      "load_failed_details": "可能由於瀏覽器相容性、網絡問題或 API 存取限制。",
-      "close_button": "關閉 3D 視圖"
+    "app": {
+        "loading_text": "載入中 …",
+        "Minimax_landmarks": "Minimax 地標",
+        "Gemini_landmarks": "Gemini 地標",
+        "search_placeholder": "搜尋路線或地點…",
+        "search_route": "搜尋路線",
+        "search_stop": "搜尋車站",
+        "user_location": "我的位置",
+        "toggle_details": "顯示詳情",
+        "toggle_traffic": "顯示路況",
+        "toggle_transit": "公共交通",
+        "show_street_view": "顯示街景",
+        "show_3d_aerial": "顯示3D鳥瞰圖"
+    },
+    "Settings": {
+        "GOOGLE_MAPS_API_KEY": "Google地圖 API 金鑰",
+        "OPENAI_API_KEY": "Minimax API 金鑰"
+    },
+    "SettingDialog": {
+        "settings_title": "設定",
+        "new_setting_prompt": "請輸入新設定的名稱：",
+        "duplicate_key_alert": "此設定鍵已存在。",
+        "delete_confirm": "您確定要刪除 \"{key}\" 設定嗎？"
+    },
+    "landmark": {
+        "aerial_view": "航空圖",
+        "near_route": "靠近路線：",
+        "near_stop": "靠近車站：",
+        "overlay": {
+            "load_failed_title": "3D地圖載入失敗",
+            "load_failed_description": "Google 3D地圖檢視無法初始化。",
+            "load_failed_details": "這可能是由於瀏覽器兼容性、網絡問題或 API 存取限制。",
+            "close_button": "關閉3D檢視"
+        }
+    },
+    "tooltips": {
+        "bus_stops": "巴士站",
+        "search_location": "搜尋位置",
+        "settings": "設定對話框",
+        "my_locale": "切換語言",
+        "close_sidebar": "關閉側邊欄",
+        "add_setting": "新增設定",
+        "close_settings": "關閉對話框",
+        "user_location_marker": "您的位置",
+        "hide_labels": "隱藏標籤",
+        "show_labels": "顯示標籤",
+        "replay_animation": "重播動畫",
+        "delete_setting": "刪除設定",
+        "more_options": "更多選項"
+    },
+    "errors": {
+        "map_init_failed": "地圖初始化失敗",
+        "location_not_found": "找不到位置",
+        "no_results": "沒有搜尋結果",
+        "geolocation_not_supported": "不支援定位服務",
+        "unable_to_get_geolocation": "無法取得定位",
+        "out_of_hk_bounds": "位置超出香港範圍"
     }
-  },
-  "tooltips": {
-    "bus_stops": "巴士站",
-    "search_location": "搜尋位置",
-    "settings": "設定對話框",
-    "my_locale": "切換語言",
-    "close_sidebar": "關閉側邊欄",
-    "add_setting": "新增設定",
-    "close_settings": "關閉對話框",
-    "user_location_marker": "你的位置",
-    "hide_labels": "隱藏標籤",
-    "show_labels": "顯示標籤",
-    "replay_animation": "重播動畫",
-    "delete_setting": "刪除設定",
-    "more_options": "更多選項"
-  },
-  "errors": {
-    "map_init_failed": "地圖初始化失敗",
-    "location_not_found": "找不到位置",
-    "no_results": "沒有搜尋結果",
-    "geolocation_not_supported": "不支援地理定位",
-    "unable_to_get_geolocation": "無法取得地理定位",
-    "out_of_hk_bounds": "位置超出香港範圍"
-  }
 }

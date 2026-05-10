@@ -6,9 +6,10 @@ import { i18n } from './lion.js';
 
 async function getModelConfig() {
   const config = await getConfig();
-  const model = config?.defaults?.openai_model || 'gpt-4.1-nano';
-  const temperature = config?.defaults?.openai_temperature || 0.1;
-  return { model, temperature };
+  const model = config?.defaults?.openai_model || 'gpt-5.4-nano';
+  const temperature = config?.defaults?.openai_temperature || 1.0;
+  const llm_api = config?.defaults?.llm_api_base || 'https://api.openai.com';
+  return { model, temperature, llm_api };
 }
 
 // Get landmarks near location using OpenAI API
@@ -55,7 +56,7 @@ export async function getLandmarksWithGPT(
       throw new Error('Failed to load prompt templates');
     }
 
-    const { model, temperature } = await getModelConfig();
+    const { model, temperature, llm_api } = await getModelConfig();
     console.info(
       `Getting landmarks in ${locale} from ${model} near ${locationData.locationName} within ${radius_km}km`
     );
@@ -63,7 +64,8 @@ export async function getLandmarksWithGPT(
       model,
       temperature,
       systemMsg,
-      prompt
+      prompt,
+      llm_api
     );
     landmarks_json = landmarks_json?.landmarks;
     if (!Array.isArray(landmarks_json) || landmarks_json.length === 0) {
@@ -148,9 +150,15 @@ export async function queryLocationWithGPT(
       throw new Error('Failed to load prompt templates');
     }
 
-    const { model, temperature } = await getModelConfig();
+    const { model, temperature, llm_api } = await getModelConfig();
     // console.debug('Prompting by ${model} (t=${temperature}):', prompt.slice(0, 100));
-    const loc_data = await callOpenAI(model, temperature, systemMsg, prompt);
+    const loc_data = await callOpenAI(
+      model,
+      temperature,
+      systemMsg,
+      prompt,
+      llm_api
+    );
     return { location: query, landmarks: [loc_data] };
   } catch (error) {
     console.error('Error getting landmarks:', error);
@@ -175,11 +183,17 @@ export async function translateWithGPT(srcJSON, srcLocale, tgtLocale) {
       throw new Error('Failed to load prompt templates');
     }
 
-    const { model, temperature } = await getModelConfig();
+    const { model, temperature, llm_api } = await getModelConfig();
     console.info(
       `🌐 Auto translating ${srcLocale} ➜ ${tgtLocale} by ${model} (t=${temperature})`
     );
-    const tgtJSON = await callOpenAI(model, temperature, systemMsg, prompt);
+    const tgtJSON = await callOpenAI(
+      model,
+      temperature,
+      systemMsg,
+      prompt,
+      llm_api
+    );
     return tgtJSON;
   } catch (error) {
     console.warn('Failed in auto translation:', error);
@@ -188,8 +202,9 @@ export async function translateWithGPT(srcJSON, srcLocale, tgtLocale) {
 }
 
 // Helper to call OpenAI with system message and prompt
-async function callOpenAI(model, temperature, systemMsg, prompt) {
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+async function callOpenAI(model, temperature, systemMsg, prompt, llm_api) {
+  const apiUrl = llm_api + '/v1/chat/completions';
+  const response = await fetch(apiUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -213,12 +228,60 @@ async function callOpenAI(model, temperature, systemMsg, prompt) {
   }
 
   const data = await response.json();
-  const content = data.choices[0]?.message?.content;
+  const content = data.choices[0]?.message?.content || '';
   if (!content) {
     throw new Error('No content in OpenAI response');
   }
 
-  return JSON.parse(content);
+  const result = extractMiniMaxJson(content);
+  if (result.reasoning_content) {
+    console.debug('Minimax reasoning: ', result.reasoning_content);
+  }
+
+  return JSON.parse(result.json_text);
+}
+
+function extractMiniMaxJson(raw) {
+  if (!raw || typeof raw !== 'string') {
+    return {
+      reasoning_content: '',
+      answer_content: '',
+      json_text: '',
+    };
+  }
+
+  // 1) Extract <think>...</think>
+  const thinkMatch = raw.match(/<think>([\s\S]*?)<\/think>/i);
+  const reasoning_content = thinkMatch ? thinkMatch[1].trim() : '';
+
+  // 2) Remove <think> block
+  let answer_content = raw.replace(/<think>[\s\S]*?<\/think>\s*/i, '').trim();
+
+  // 3) Remove fenced code block if present
+  // Handles ```json ... ``` or ``` ... ```
+  const fencedMatch = answer_content.match(
+    /^```(?:json)?\s*([\s\S]*?)\s*```$/i
+  );
+  const unfenced = fencedMatch ? fencedMatch[1].trim() : answer_content;
+
+  // 4) Try to isolate the JSON object/array
+  const firstBrace = unfenced.indexOf('{');
+  const firstBracket = unfenced.indexOf('[');
+  const starts = [firstBrace, firstBracket].filter((i) => i >= 0);
+  const start = starts.length ? Math.min(...starts) : -1;
+
+  const lastBrace = unfenced.lastIndexOf('}');
+  const lastBracket = unfenced.lastIndexOf(']');
+  const end = Math.max(lastBrace, lastBracket);
+
+  const json_text =
+    start >= 0 && end >= start ? unfenced.slice(start, end + 1).trim() : '';
+
+  return {
+    reasoning_content,
+    answer_content: unfenced,
+    json_text,
+  };
 }
 
 // Try to verify coordinate accuracy by geocoding the landmark (to reduce hallucination)

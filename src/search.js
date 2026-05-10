@@ -188,7 +188,7 @@ function persistSearchHistory() {
   }
 }
 
-export async function searchLandmarks() {
+export async function searchLandmarks(param) {
   try {
     clearLandMarkers();
     setLoading(true);
@@ -209,7 +209,7 @@ export async function searchLandmarks() {
     console.debug('AI Context:', context);
 
     let landmarkData = null;
-    if (urlParams.has('gpt')) {
+    if (param === 'gpt' || urlParams.has('gpt')) {
       landmarkData = await getLandmarksWithGPT(
         locationData,
         lat,
