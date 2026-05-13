@@ -81,7 +81,7 @@ export async function getLandmarksWithGemini(
   locationData,
   lat,
   lon,
-  radius_km = 15,
+  radius_km = 1,
   locale = i18n.lang.preferLocale,
   promptPath = 'landmarks.discovery',
   extraVariables = {}
@@ -102,7 +102,7 @@ export async function getLandmarksWithGemini(
     }
 
     console.info(
-      `Asking Gemini (${MODEL_NAME}) to find landmarks in ${locationData.locationName}...`
+      `Asking Gemini (${MODEL_NAME}) to find landmarks in ${locationData.locationName} within ${radius_km}km`
     );
     const data = await callGeminiWithMaps(prompt, systemMsg, lat, lon);
 

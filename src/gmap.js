@@ -262,7 +262,7 @@ export async function PlaceTextSearch(
 export async function PlaceNearbySearch(
   lat,
   lon,
-  radius_km = 15,
+  radius_km = 1,
   maxResultCount = 10,
   langCode = i18n.lang.preferLangCode,
   filterType = null

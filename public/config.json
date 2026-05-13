@@ -8,7 +8,7 @@
       "country": "Hong Kong",
       "country_code": "HK"
     },
-    "search_radius": 15,
+    "search_radius": 1,
     "zoom_level": 15,
     "tileLayer": "googleMaps",
     "openai_model": "MiniMax-M2.1",

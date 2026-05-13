@@ -17,7 +17,7 @@ export async function getLandmarksWithGPT(
   locationData,
   lat,
   lon,
-  radius_km = 15,
+  radius_km = 1,
   locale = i18n.lang.preferLocale,
   promptPath = 'landmarks.discovery',
   extraVariables = {}

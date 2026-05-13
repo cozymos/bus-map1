@@ -13,6 +13,7 @@ import {
   updateUrlParameters,
   getMapCenter,
   isWithinHKBounds,
+  getConfig,
 } from './utils.js';
 import { mapPanTo, defaultZoom } from './app.js';
 import { displayLandmarks, clearLandMarkers } from './landmark.js';
@@ -203,9 +204,12 @@ export async function searchLandmarks(param) {
     const urlParams = new URLSearchParams(window.location.search);
     const locationData = await getLocationDetails(lat, lon);
 
+    const config = await getConfig();
+    const radius = config?.defaults?.search_radius || 1;
+
     // Build context for LLM
     if (!hkbusData.data) await hkbusData.load();
-    const { context, title } = buildBusRouteContext(lat, lon, locationData);
+    const { context, title } = buildBusRouteContext(lat, lon, locationData, radius);
     console.debug('AI Context:', context);
 
     let landmarkData = null;
@@ -214,7 +218,7 @@ export async function searchLandmarks(param) {
         locationData,
         lat,
         lon,
-        1,
+        radius,
         i18n.userLocale,
         'landmarks.busroute',
         { context }
@@ -227,7 +231,7 @@ export async function searchLandmarks(param) {
       landmarkData = await PlaceNearbySearch(
         lat,
         lon,
-        1,
+        radius,
         5,
         i18n.userLocale,
         filterType
@@ -237,7 +241,7 @@ export async function searchLandmarks(param) {
         locationData,
         lat,
         lon,
-        1,
+        radius,
         i18n.userLocale,
         'landmarks.busroute',
         { context }
@@ -259,7 +263,7 @@ export async function searchLandmarks(param) {
   }
 }
 
-function buildBusRouteContext(lat, lon, locationData) {
+function buildBusRouteContext(lat, lon, locationData, radius = 1) {
   // 1. Active Route Context
   if (routeState.activeId && hkbusData.data) {
     const route = hkbusData.data.routeList[routeState.activeId];
@@ -312,7 +316,7 @@ function buildBusRouteContext(lat, lon, locationData) {
 
   // 3. Map Center Context (Fallback)
   return {
-    context: `Current map center: ${lat}, ${lon} (${locationData.locationName})`,
+    context: `Current map center: ${lat}, ${lon} (${locationData.locationName}) with a search radius of ${radius}km`,
     title: locationData.locationName,
   };
 }

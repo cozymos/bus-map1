@@ -1,5 +1,5 @@
 /* eslint-disable no-undef */
-import { hkbusData } from './busdata.js';
+import { hkbusData, SEARCH_CIRCLE_RADIUS_M } from './busdata.js';
 import { mapPanTo } from './app.js';
 import { i18n } from './lion.js';
 import {
@@ -104,9 +104,9 @@ function updateSearchCircle() {
 }
 
 function getBusStopSearchRadius(zoom) {
-  let radius = 100;
+  let radius = SEARCH_CIRCLE_RADIUS_M;
   if (zoom <= streetZoom + 1) {
-    radius = 200;
+    radius = SEARCH_CIRCLE_RADIUS_M * 2;
   }
   return radius;
 }

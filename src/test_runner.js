@@ -73,7 +73,7 @@ async function loadConfig() {
             lat: 22.3086,
             lon: 114.1722,
           },
-          search_radius: 15,
+          search_radius: 1,
         },
         test_mode: {
           test_landmarks: [

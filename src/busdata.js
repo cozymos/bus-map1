@@ -13,7 +13,7 @@ const CACHE_KEY = 'hkbus_data_v1';
 const isBrowser =
   typeof window !== 'undefined' && typeof window.document !== 'undefined';
 const SEARCH_QUERY_MAX_RESULTS = 100;
-const SEARCH_CIRCLE_RADIUS_M = 100;
+export const SEARCH_CIRCLE_RADIUS_M = 100;
 const MAX_STOPS_ON_CIRCLE = 10;
 const MIN_STOPS_ON_CIRCLE = 2;
 
@@ -61,18 +61,71 @@ class HKBusData {
    */
   async load(dataset = '/routeFareList.min.json') {
     try {
-      const cached = await getBusCache();
-      if (cached) {
+      let isStale = false;
+      let headMeta = null;
+      let cached = null;
+
+      if (isBrowser) {
+        const base_url = import.meta.env?.BASE_URL || '/';
+        const fetchPath = base_url + dataset.replace(/^\/+/, '');
+
+        // Run IDB get and HEAD request in parallel for faster loading
+        const [cacheResult, headRes] = await Promise.allSettled([
+          getBusCache(),
+          fetch(fetchPath, { method: 'HEAD' })
+        ]);
+
+        if (cacheResult.status === 'fulfilled') {
+          cached = cacheResult.value;
+        }
+
+        if (headRes.status === 'fulfilled' && headRes.value.ok) {
+          const response = headRes.value;
+          const lastModified = response.headers.get('Last-Modified');
+          const etag = response.headers.get('ETag');
+          const contentLength = response.headers.get('Content-Length');
+
+          if (lastModified || etag || contentLength) {
+            headMeta = JSON.stringify({ lastModified, etag, contentLength });
+            const cachedMeta = localStorage.getItem('hkbus_data_meta');
+            if (cachedMeta !== headMeta) {
+              isStale = true;
+            }
+          }
+        }
+      } else {
+        // Node.js environment
+        cached = await getBusCache();
+      }
+
+      if (cached && !isStale) {
         this.data = cached;
         console.debug('Loaded bus data from IDB cache');
       } else {
         if (isBrowser) {
+          console.debug(isStale ? 'Cache is stale, fetching latest...' : 'No cache, fetching...');
           const response = await fetchJSON(dataset);
           if (!response.ok) {
             console.warn(`Failed to load HKBus data: ${response.status}`);
-            return null;
+            if (cached) {
+              this.data = cached; // Fallback to stale cache
+            } else {
+              return null;
+            }
+          } else {
+            this.data = await response.json();
+            setBusCache(this.data);
+            if (headMeta) {
+              localStorage.setItem('hkbus_data_meta', headMeta);
+            } else {
+              const lastModified = response.headers.get('Last-Modified');
+              const etag = response.headers.get('ETag');
+              const contentLength = response.headers.get('Content-Length');
+              if (lastModified || etag || contentLength) {
+                localStorage.setItem('hkbus_data_meta', JSON.stringify({ lastModified, etag, contentLength }));
+              }
+            }
           }
-          this.data = await response.json();
         } else {
           // Node.js environment: read from filesystem
           const fs = await import('fs');
@@ -86,10 +139,18 @@ class HKBusData {
           const fileContent = fs.readFileSync(filePath, 'utf-8');
           this.data = JSON.parse(fileContent);
         }
-        setBusCache(this.data);
       }
 
-      // Pre-process stopList into an array for faster spatial queries
+      this.buildIndices();
+      return this.data;
+    } catch (error) {
+      console.error('Error loading HKBus data:', error);
+      return null;
+    }
+  }
+
+  buildIndices() {
+    // Pre-process stopList into an array for faster spatial queries
       if (this.data.stopList) {
         this.stopsArray = Object.entries(this.data.stopList).map(
           ([id, stop]) => ({
@@ -99,7 +160,6 @@ class HKBusData {
         );
       }
 
-      // Pre-process routeList to build stop->routes index
       this.stopToRoutes = {};
       this.stopToOperators = {};
       if (this.data.routeList) {
@@ -120,12 +180,6 @@ class HKBusData {
           }
         }
       }
-
-      return this.data;
-    } catch (error) {
-      console.error('Error loading HKBus data:', error);
-      return null;
-    }
   }
 
   /**
