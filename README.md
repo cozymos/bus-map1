@@ -28,7 +28,7 @@ src/
 ├── landmark.js     # Landmark sidebar, markers, and 3D overlays
 ├── gmap.js         # Google Maps API wrappers
 ├── gemini.js       # Gemini LLM grounded with Google Maps
-├── openai.js       # OpenAI LLM
+├── openai.js       # Minimax LLM via OpenAI-compatible API
 ├── prompts.js      # Prompting templates
 ├── lion.js         # i18n/L10n with auto-translations
 └── test_runner.js  # Client-side testing
@@ -63,16 +63,10 @@ As an open-source project targeting technical users, this client-only web-app is
 2.  Securing their key by restricting it to their own domains (`localhost` for testing, their deployment domain for production).
 3.  The costs associated with their usage, respecting Google Maps and OpenAI terms of service.
 
-**Generate API keys**
-
-- **Google Maps API Key**
+**Google Maps API Key**
   1.  Visit the [Google Cloud Console](https://console.cloud.google.com/) → Create or select a project → Go to [Google Maps Platform](https://console.cloud.google.com/google/maps-apis) ([See Also](https://developers.google.com/maps/documentation/javascript/get-api-key)).
   2.  Enable “Map Tiles API”, “Maps JavaScript API”, “Geocoding API” and “Places API (New)” under **APIs & Services**.
   3.  Create an API key under **Keys & Credentials**. For local development restrict **HTTP referrer** to `localhost`.
-
-- **OpenAI API Key (Optional)**
-  1.  Visit the [OpenAI dashboard](https://platform.openai.com/api-keys).
-  2.  Create a new secret key and copy it for later use; it won't be shown again.
 
 **Start development server**
 
@@ -92,4 +86,4 @@ npm run dev
 - Frontend Test Runner - standalone test script running direct function testing
 - Built-in test mode with mock data from config.json, skipping API calls
 - Runnable on both browser console and Node.js CLI via `npm test`
-- Append `?test=true` to the URL to auto-run tests on-browser
+- Append `?test` to the URL to auto-run tests on-browser

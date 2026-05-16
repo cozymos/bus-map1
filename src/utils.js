@@ -9,7 +9,7 @@ export const HK_BOUNDS = {
   W: 113.8,
 };
 
-export function getSettings() {
+export function getSettings(requiredKey = null) {
   try {
     let rawSettings = localStorage.getItem(SETTINGS_KEY);
 
@@ -23,10 +23,35 @@ export function getSettings() {
       }
     }
 
-    return JSON.parse(rawSettings) || {};
+    const settings = JSON.parse(rawSettings) || {};
+    let updated = false;
+
+    if (requiredKey) {
+      const keys = Array.isArray(requiredKey) ? requiredKey : [requiredKey];
+      keys.forEach((key) => {
+        if (!(key in settings)) {
+          settings[key] = '';
+          updated = true;
+        }
+      });
+    }
+
+    if (updated) {
+      setSettings(settings);
+    }
+
+    return settings;
   } catch (error) {
     console.error(`Error getting ${SETTINGS_KEY}:`, error);
     return {};
+  }
+}
+
+export function setSettings(settings) {
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  } catch (error) {
+    console.error(`Error setting ${SETTINGS_KEY}:`, error);
   }
 }
 

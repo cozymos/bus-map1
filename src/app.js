@@ -363,7 +363,7 @@ function loadGoogleMapsAPI() {
 // Initialize the app when DOM is loaded
 document.addEventListener('DOMContentLoaded', async () => {
   await initi18n();
-  await settingDialog.require();
+  await settingDialog.require(['GOOGLE_MAPS_API_KEY']);
 
   loadGoogleMapsAPI();
 
