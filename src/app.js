@@ -407,11 +407,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     addMoreOption('app.Minimax_landmarks', () => {
-      searchLandmarks("gpt");
+      searchLandmarks('gpt');
     });
 
     addMoreOption('app.Gemini_landmarks', () => {
-      searchLandmarks("gem");
+      searchLandmarks('gem');
     });
 
     addMoreOption('app.show_street_view', () => {

@@ -72,7 +72,7 @@ class HKBusData {
         // Run IDB get and HEAD request in parallel for faster loading
         const [cacheResult, headRes] = await Promise.allSettled([
           getBusCache(),
-          fetch(fetchPath, { method: 'HEAD' })
+          fetch(fetchPath, { method: 'HEAD' }),
         ]);
 
         if (cacheResult.status === 'fulfilled') {
@@ -103,7 +103,11 @@ class HKBusData {
         console.debug('Loaded bus data from IDB cache');
       } else {
         if (isBrowser) {
-          console.debug(isStale ? 'Cache is stale, fetching latest...' : 'No cache, fetching...');
+          console.debug(
+            isStale
+              ? 'Cache is stale, fetching latest...'
+              : 'No cache, fetching...'
+          );
           const response = await fetchJSON(dataset);
           if (!response.ok) {
             console.warn(`Failed to load HKBus data: ${response.status}`);
@@ -122,7 +126,10 @@ class HKBusData {
               const etag = response.headers.get('ETag');
               const contentLength = response.headers.get('Content-Length');
               if (lastModified || etag || contentLength) {
-                localStorage.setItem('hkbus_data_meta', JSON.stringify({ lastModified, etag, contentLength }));
+                localStorage.setItem(
+                  'hkbus_data_meta',
+                  JSON.stringify({ lastModified, etag, contentLength })
+                );
               }
             }
           }
@@ -151,35 +158,35 @@ class HKBusData {
 
   buildIndices() {
     // Pre-process stopList into an array for faster spatial queries
-      if (this.data.stopList) {
-        this.stopsArray = Object.entries(this.data.stopList).map(
-          ([id, stop]) => ({
-            id,
-            ...stop,
-          })
-        );
-      }
+    if (this.data.stopList) {
+      this.stopsArray = Object.entries(this.data.stopList).map(
+        ([id, stop]) => ({
+          id,
+          ...stop,
+        })
+      );
+    }
 
-      this.stopToRoutes = {};
-      this.stopToOperators = {};
-      if (this.data.routeList) {
-        for (const [routeId, route] of Object.entries(this.data.routeList)) {
-          if (!route.stops) continue;
-          const seenStops = new Set();
-          for (const [company, companyStops] of Object.entries(route.stops)) {
-            for (const stopId of companyStops) {
-              if (!this.stopToOperators[stopId])
-                this.stopToOperators[stopId] = new Set();
-              this.stopToOperators[stopId].add(company);
+    this.stopToRoutes = {};
+    this.stopToOperators = {};
+    if (this.data.routeList) {
+      for (const [routeId, route] of Object.entries(this.data.routeList)) {
+        if (!route.stops) continue;
+        const seenStops = new Set();
+        for (const [company, companyStops] of Object.entries(route.stops)) {
+          for (const stopId of companyStops) {
+            if (!this.stopToOperators[stopId])
+              this.stopToOperators[stopId] = new Set();
+            this.stopToOperators[stopId].add(company);
 
-              if (seenStops.has(stopId)) continue;
-              seenStops.add(stopId);
-              if (!this.stopToRoutes[stopId]) this.stopToRoutes[stopId] = [];
-              this.stopToRoutes[stopId].push(routeId);
-            }
+            if (seenStops.has(stopId)) continue;
+            seenStops.add(stopId);
+            if (!this.stopToRoutes[stopId]) this.stopToRoutes[stopId] = [];
+            this.stopToRoutes[stopId].push(routeId);
           }
         }
       }
+    }
   }
 
   /**

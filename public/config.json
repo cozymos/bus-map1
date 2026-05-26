@@ -10,7 +10,6 @@
     },
     "search_radius": 1,
     "zoom_level": 15,
-    "tileLayer": "googleMaps",
     "openai_model": "MiniMax-M2.1",
     "llm_api_base": "https://api.minimax.io",
     "openai_temperature": 0.2

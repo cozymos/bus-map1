@@ -203,13 +203,21 @@ export async function searchLandmarks(param) {
     const lon = normalizeCoordValue(center.lng);
     const urlParams = new URLSearchParams(window.location.search);
     const locationData = await getLocationDetails(lat, lon);
+    if (!locationData || locationData.locationName === 'Unknown Location') {
+      throw new Error('Unknown location');
+    }
 
     const config = await getConfig();
     const radius = config?.defaults?.search_radius || 1;
 
     // Build context for LLM
     if (!hkbusData.data) await hkbusData.load();
-    const { context, title } = buildBusRouteContext(lat, lon, locationData, radius);
+    const { context, title } = buildBusRouteContext(
+      lat,
+      lon,
+      locationData,
+      radius
+    );
     console.debug('AI Context:', context);
 
     let landmarkData = null;
