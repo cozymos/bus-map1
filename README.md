@@ -14,7 +14,7 @@ A minimalist Google Maps app on discovery and search with Hong Kong public trans
 ### External Services
 
 - **Google Maps API**: Core mapping, 3D Maps, Places, Traffic, and Transit layers.
-- **LLM API**: LLM generated translations and landmark search
+- **LLM API**: AI generated translations and landmark search
 - **HKBus Dataset**: Static public transport data (Routes, Stops, Fares).
 
 ### Vite SPA Frontend
@@ -68,11 +68,6 @@ npm install
 - Settings are stored in browser local storage
 - For development, Vite exposes variables prefixed with `VITE_` to the Web app
 
-```bash
-VITE_GOOGLE_MAPS_API_KEY=your_google_maps_api_key
-VITE_OPENAI_API_KEY=your_openai_api_key
-VITE_GEMINI_API_KEY=your_gemini_api_key
-```
 ### Testing
 
 - Frontend Test Runner - standalone test script running direct function testing

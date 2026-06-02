@@ -3,7 +3,7 @@ import { GetPrompt, GetSystemMessage } from './prompt_utils.js';
 import { i18n } from './lion.js';
 
 // Configuration for the Gemini model
-const MODEL_NAME = 'gemini-2.0-flash';
+const MODEL_NAME = 'gemini-flash-lite-latest';
 const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent`;
 
 /**
